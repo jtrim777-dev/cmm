@@ -6,10 +6,10 @@ project/target/
 bin/
 srcs.md5
 3rdparty/
-bazel-bin/
-bazel-CS4610/
-bazel-out/
-bazel-testlogs/
+bazel-bin
+bazel-cmm
+bazel-out
+bazel-testlogs
 
 
 
