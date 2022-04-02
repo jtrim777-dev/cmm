@@ -1,7 +1,7 @@
 package com.github.jtrim777.cmm
 package common
 
-import lang.DataType
+import com.github.jtrim777.cmm.lang.DataType
 
 case class Context(scope: Context.Scope, tailPos: Boolean, frameDepth: Int) {
   def setTail: Context = this.copy(tailPos = true)

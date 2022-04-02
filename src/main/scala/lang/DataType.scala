@@ -1,5 +1,4 @@
-package com.github.jtrim777.cmm
-package lang
+package com.github.jtrim777.cmm.lang
 
 sealed trait DataType {
   val superName: String

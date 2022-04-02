@@ -1,5 +1,4 @@
-package com.github.jtrim777.cmm
-package lang
+package com.github.jtrim777.cmm.lang
 
 case class DataDecl(name: String, kind: DataType, count: Int, value: Seq[Expression]) {
   def toCode: String = {

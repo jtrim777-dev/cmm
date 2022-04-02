@@ -1,5 +1,4 @@
-package com.github.jtrim777.cmm
-package asm
+package com.github.jtrim777.cmm.asm
 
 sealed trait ISArg {
 

@@ -11,6 +11,10 @@ options:
       url: https://packages.confluent.io/maven/
 
 dependencies:
+  org.typelevel:
+    cats-effect:
+      lang: scala
+      version: "3.3.9"
 
 replacements:
   org.scala-lang:
