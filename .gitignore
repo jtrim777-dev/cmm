@@ -10,7 +10,7 @@ bazel-bin
 bazel-cmm
 bazel-out
 bazel-testlogs
-
+.ijwb/
 
 
 

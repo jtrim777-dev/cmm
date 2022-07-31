@@ -11,6 +11,11 @@ options:
       url: https://packages.confluent.io/maven/
 
 dependencies:
+  org.parboiled:
+    parboiled:
+      lang: scala
+      version: "2.4.0"
+
   org.typelevel:
     cats-effect:
       lang: scala

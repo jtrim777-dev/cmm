@@ -1,16 +1,19 @@
 package com.github.jtrim777.cmm
 package x86_64
 
-import asm.ISArg.Register
+import asm.ISArg.{LabelRef, Register}
 import asm.{AsmSym, ISArg}
-import common.VirtualRegister
-import lang.{DataType, RelOp}
+import common.{Context, VirtualRegister}
+import lang.{DataType, Expression, RelOp}
 import x86_64.ISAx86_64._
 import x86_64.registers._
 
 object helpers {
-  implicit class SOHelper(so: VirtualRegister.StackOffset) {
-    def asArg: ISArg = ISArg.Offset(RBP, ISArg.Constant(so.bytes))
+  implicit class VRHelper(vr: VirtualRegister) {
+    def asArg: ISArg = vr match {
+      case VirtualRegister.Hardware(reg) => reg
+      case VirtualRegister.StackOffset(bytes) => ISArg.Offset(RBP, ISArg.Constant(bytes))
+    }
   }
 
   implicit class DTHelper(dt: DataType) {
@@ -39,7 +42,7 @@ object helpers {
     if (ind < 6) {
       VirtualRegister.Hardware(Args6(ind))
     } else {
-      VirtualRegister.StackOffset(-8 * (ind+1))
+      VirtualRegister.StackOffset(8 * (ind - 4)) // args[6] (the 7th arg) is at RBP + 16
     }
   }
 
@@ -48,21 +51,17 @@ object helpers {
     case o:ISArg.Offset => dst match {
       case r: Register => Seq(MOV(o, r, kind.asSize))
       case o2: ISArg.Offset => Seq(
-        MOV(o, Scratch1, kind.asSize),
-        MOV(Scratch1, o2, kind.asSize)
+        MOV(o, MovInterm, kind.asSize),
+        MOV(MovInterm, o2, kind.asSize)
       )
     }
   }
 
-  def movTo(virt: VirtualRegister, src: ISArg, kind: DataType): Seq[AsmSym] = virt match {
-    case VirtualRegister.Hardware(reg) => Seq(MOV(src, reg, kind.asSize))
-    case off:VirtualRegister.StackOffset => saveMov(src, off.asArg, kind)
-  }
+  def movTo(virt: VirtualRegister, src: ISArg, kind: DataType): Seq[AsmSym] =
+    saveMov(src, virt.asArg, kind)
 
-  def movFrom(virt: VirtualRegister, dst: ISArg, kind: DataType): Seq[AsmSym] = virt match {
-    case VirtualRegister.Hardware(reg) => Seq(MOV(reg, dst, kind.asSize))
-    case off:VirtualRegister.StackOffset => saveMov(off.asArg, dst, kind)
-  }
+  def movFrom(virt: VirtualRegister, dst: ISArg, kind: DataType): Seq[AsmSym] =
+    saveMov(virt.asArg, dst, kind)
 
   def typedMov(from: (ISArg, DataType), to: (ISArg, DataType), sign: Boolean = false): Seq[AsmSym] = {
     if (from._2.superName != to._2.superName || from._2.bytes > to._2.bytes) {
@@ -82,11 +81,48 @@ object helpers {
         case o:ISArg.Offset => to._1 match {
           case r: Register => Seq(mover(o, r, ss, ds))
           case o2: ISArg.Offset => Seq(
-            mover(o, Scratch1, ss, ds),
-            MOV(Scratch1, o2, size = ds)
+            mover(o, MovInterm, ss, ds),
+            MOV(MovInterm, o2, size = ds)
           )
         }
       }
     }
+  }
+
+  def safePush(src: ISArg): Seq[AsmSym] = src match {
+    case r:Register => Seq(PUSH(r))
+    case other => Seq(MOV(other, MovInterm), PUSH(MovInterm))
+  }
+
+  def findParameters(expr: Expression, ctx: Context): Seq[Context.ProcParam] = expr match {
+    case Expression.ID(name) => ctx.scope.get(name).collect {
+      case p:Context.ProcParam => Seq(p)
+    }.getOrElse(Seq.empty)
+    case Expression.Read(_, pos, _) => findParameters(pos, ctx)
+    case Expression.InfixOp(lhs, _, rhs) => findParameters(lhs, ctx) ++ findParameters(rhs, ctx)
+    case Expression.PrefixOp(_, target) => findParameters(target, ctx)
+    case Expression.PrimOp(_, args) => args.flatMap(findParameters(_, ctx))
+  }
+
+  implicit class NumSyntax(num: Int) {
+    def const: ISArg.Const = ISArg.Constant(num)
+    def uconst: ISArg.Const = ISArg.UConstant(num)
+  }
+
+  implicit class LongNumSyntax(num: Long) {
+    def const: ISArg.Const = ISArg.Constant(num)
+    def uconst: ISArg.Const = ISArg.UConstant(num)
+  }
+
+  def argFromImmediate(expr: Expression, ctx: Context): (ISArg, DataType) = expr match {
+    case Expression.CInt(value) => (value.const, DataType.Word8)
+    case Expression.CFlot(_) => throw new IllegalArgumentException("Error compiling float literal: Floats are not yet supported")
+    case Expression.ID(name) => ctx.scope(name) match {
+      case Context.ProcParam(_, index, kind) => (argPosToVR(index).asArg, kind)
+      case Context.LocalVar(kind, pos) => (pos.asArg, kind)
+      case Context.Procedure(name) => (LabelRef.proc(name), DataType.Word8)
+      case Context.DataLabel(_, _, ref) => (ref, DataType.Word8)
+    }
+    case _ => throw new IllegalArgumentException(s"Error compiling expression: $expr is not immediate")
   }
 }

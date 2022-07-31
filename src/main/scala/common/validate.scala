@@ -16,6 +16,7 @@ object validate {
   def validate(prog: Program): Rez[Unit] = for {
     _ <- checkScope(prog)
     _ <- ensureSizes(prog)
+    _ <- validUsages(prog)
   } yield ()
 
   def checkName(name: String): Rez[Unit] = {
@@ -142,8 +143,8 @@ object validate {
       checkScope(proc, datum, procs, labels)
         .flatMap(_ => args.map(checkScope(_, datum, procs, labels)).sequence.map(_ => labels))
     case Statement.Call(results, proc, args@_*) =>
-      if (results.exists(s => !datum.contains(s) && !labels.contains(s))) {
-        Left("Attempting to assign call result to non-existing variable")
+      if (results.exists(s => !labels.contains(s))) {
+        Left("Attempting to assign call result to non-existing or invalid variable")
       } else {
         checkScope(proc, datum, procs, labels)
           .flatMap(_ => args.map(checkScope(_, datum, procs, labels)).sequence.map(_ => labels))
@@ -188,4 +189,29 @@ object validate {
       case _ => Right(Seq.empty)
     }.sequence.map(_ => ())
   }
+
+  def validUsages(statement: Statement): Rez[Unit] = statement match {
+    case Statement.Skip => Right(())
+    case Statement.VarDecl(_, names@_*) => if (names.isEmpty) {
+      Left("Variable declarations must declare at least one var")
+    } else Right(())
+    case Statement.Assn(_, _) => Right(())
+    case Statement.Write(_, _, _, _) => Right(())
+    case Statement.IfStmt(_, _, _, exec, elseExec) =>
+      validUsages(exec).flatMap(_ => validUsages(elseExec.getOrElse(Statement.Skip)))
+    case Statement.LocalLabel(_) => Right(())
+    case Statement.Goto(_) => Right(())
+    case Statement.Jump(_, _) => Right(())
+    case Statement.Call(results, _, _) => if (results.length > 2) {
+      Left("Procedures returning more than 2 values are not supported")
+    } else Right(())
+    case Statement.Return(results@_*) => if (results.length > 2) {
+      Left("Procedures returning more than 2 values are not supported")
+    } else Right(())
+    case Statement.Block(stmts@_*) => stmts.map(validUsages).sequence.map(_ => ())
+  }
+
+  def validUsages(prog: Program): Rez[Unit] = prog.segments.collect {
+    case ProcDefn(_, _, body) => validUsages(body)
+  }.sequence.map(_ => ())
 }

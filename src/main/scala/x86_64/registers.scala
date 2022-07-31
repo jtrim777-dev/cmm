@@ -25,6 +25,6 @@ object registers {
   val R15: Register = Register(15)
 
   val ArgRegs: List[Register] = List(RDI, RSI, RDX, RCX, R8, R9)
-  val Scratch1: Register = R10
-  val Scratch2: Register = R11
+  val MovInterm: Register = R10
+  val SecTarget: Register = R11
 }

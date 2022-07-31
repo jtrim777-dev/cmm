@@ -7,6 +7,10 @@ sealed trait DataType {
   def toCode: String = superName + bytes
 
   def canWidenTo(other: DataType): Boolean
+
+  def bounding(other: DataType): Option[DataType] = if (superName == other.superName) {
+    if (bytes >= other.bytes) Some(this) else Some(other)
+  } else None
 }
 
 object DataType {
@@ -33,4 +37,14 @@ object DataType {
   }
   case object Flot4 extends Flot(4)
   case object Flot8 extends Flot(8)
+
+  def fromName(name: String): DataType = name match {
+    case "word1" => Word1
+    case "word2" => Word2
+    case "word4" => Word4
+    case "word8" => Word8
+    case "float4" => Flot4
+    case "float8" => Flot8
+    case _ => throw new IllegalArgumentException(s"No such DataType $name")
+  }
 }

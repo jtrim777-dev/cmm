@@ -1,31 +1,31 @@
 package com.github.jtrim777.cmm
 package common
 
-import com.github.jtrim777.cmm.lang.DataType
+import com.github.jtrim777.cmm.asm.ISArg.LabelRef
+import common.Context.ScopeObject
+import lang.DataType
 
-case class Context(scope: Context.Scope, tailPos: Boolean, frameDepth: Int) {
-  def setTail: Context = this.copy(tailPos = true)
-  def clearTail: Context = this.copy(tailPos = false)
-
+case class Context(scope: Map[String, ScopeObject], frameDepth: Int, procArity: Int) {
   def enscopeLocal(name: String, kind: DataType, pos: VirtualRegister): Context = {
-    val nscope = scope.copy(data = scope.data.updated(name, Context.LocalVar(kind, pos)))
-
-    this.copy(scope = nscope)
+    this.copy(scope = scope.updated(name, Context.LocalVar(kind, pos)))
   }
+  def setArity(a: Int): Context = this.copy(procArity = a)
 
   def addLocal(name: String, kind: DataType, wordSize: Int): Context = {
     val pos = VirtualRegister.StackOffset(frameDepth)
-    val nscope = scope.copy(data = scope.data.updated(name, Context.LocalVar(kind, pos)))
+    val nscope = scope.updated(name, Context.LocalVar(kind, pos))
 
     this.copy(scope = nscope, frameDepth = frameDepth + wordSize)
   }
+
+  def enscope(name: String, value: Context.ScopeObject): Context =
+    this.copy(scope = scope.updated(name, value))
 }
 
 object Context {
-  case class Scope(data: Map[String, ScopeObject])
-
   sealed trait ScopeObject
+  case class ProcParam(name: String, index: Int, kind: DataType) extends ScopeObject
   case class LocalVar(kind: DataType, pos: VirtualRegister) extends ScopeObject
-  case class Procedure(arguments: Seq[DataType], result: DataType) extends ScopeObject
-  case class DataLabel(kind: DataType, size: Int, pos: Int) extends ScopeObject
+  case class Procedure(name: String) extends ScopeObject
+  case class DataLabel(kind: DataType, size: Int, ref: LabelRef) extends ScopeObject
 }

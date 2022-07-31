@@ -1,6 +1,8 @@
 package com.github.jtrim777.cmm
 package lang
 
+import java.lang.{Long => JLong}
+
 sealed trait Expression {
   def toCode: String
   def toWrappedCode: String = if (needParen) s"($toCode)" else toCode
@@ -11,6 +13,18 @@ object Expression {
   case class CInt(value: Long) extends Expression {
     override def toCode: String = value.toString
   }
+  object CInt {
+    def parse(raw: String): Long = {
+      if (raw.contains("0x")) {
+        JLong.parseLong(raw.replace("0x", ""), 16)
+      } else if (raw.contains("0b")) {
+        JLong.parseLong(raw.replace("0b", ""), 2)
+      } else {
+        raw.toLong
+      }
+    }
+  }
+
   case class CFlot(value: Double) extends Expression {
     override def toCode: String = value.toString
   }
@@ -19,7 +33,7 @@ object Expression {
     override def toCode: String = name
   }
 
-  case class Read(kind: DataType, pos: Expression, align: Option[Int] = None) extends Expression {
+  case class Read(kind: DataType, pos: Expression, align: Option[Long] = None) extends Expression {
     override def toCode: String = {
       val as = align.map(i => s"{align$i}").getOrElse("")
 
