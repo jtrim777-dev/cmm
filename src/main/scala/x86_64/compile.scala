@@ -1,4 +1,4 @@
-package com.github.jtrim777.cmm
+package dev.jtrim777.cmm
 package x86_64
 
 import java.util.UUID
@@ -6,7 +6,7 @@ import java.util.UUID
 import asm.{AsmSym, ISArg}
 import asm.AsmSym.Label
 import asm.ISArg._
-import com.github.jtrim777.cmm.lang.Statement.Jump
+import dev.jtrim777.cmm.lang.Statement.Jump
 import common.Context
 import lang.ProgramSegment.ProcDefn
 import lang.{ArithOp, DataType, Expression, OpFlag, RelOp, Statement}

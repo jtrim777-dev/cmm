@@ -1,4 +1,4 @@
-package com.github.jtrim777.cmm
+package dev.jtrim777.cmm
 
 package object util {
   implicit class SEOps[L, R](seq: Seq[Either[L, R]]) {

@@ -1,4 +1,4 @@
-package com.github.jtrim777.cmm.lang
+package dev.jtrim777.cmm.lang
 
 trait ProgramSegment {
   def toCode: String

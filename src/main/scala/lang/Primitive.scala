@@ -1,4 +1,4 @@
-package com.github.jtrim777.cmm
+package dev.jtrim777.cmm
 package lang
 
 sealed trait Primitive {

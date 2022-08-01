@@ -1,6 +1,6 @@
-package com.github.jtrim777.cmm.lang
+package dev.jtrim777.cmm.lang
 
-import com.github.jtrim777.cmm.lang.ProgramSegment.{DataBlock, ProcDefn}
+import dev.jtrim777.cmm.lang.ProgramSegment.{DataBlock, ProcDefn}
 
 case class Program(segments: ProgramSegment*) {
   def toCode: String = {

@@ -1,7 +1,7 @@
-package com.github.jtrim777.cmm
+package dev.jtrim777.cmm
 package common
 
-import com.github.jtrim777.cmm.asm.ISArg.LabelRef
+import dev.jtrim777.cmm.asm.ISArg.LabelRef
 import common.Context.ScopeObject
 import lang.DataType
 

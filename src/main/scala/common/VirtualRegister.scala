@@ -1,8 +1,8 @@
-package com.github.jtrim777.cmm
+package dev.jtrim777.cmm
 package common
 
 import asm.ISArg.Register
-import com.github.jtrim777.cmm.asm.{AsmSym, ISArg}
+import dev.jtrim777.cmm.asm.{AsmSym, ISArg}
 
 sealed trait VirtualRegister {
 }

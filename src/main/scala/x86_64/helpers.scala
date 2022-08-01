@@ -1,4 +1,4 @@
-package com.github.jtrim777.cmm
+package dev.jtrim777.cmm
 package x86_64
 
 import asm.ISArg.{LabelRef, Register}
