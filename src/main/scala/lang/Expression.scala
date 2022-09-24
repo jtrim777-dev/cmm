@@ -32,6 +32,13 @@ object Expression {
   case class ID(name: String) extends Expression {
     override def toCode: String = name
   }
+  object ID {
+    def fromSource(raw: String): ID = {
+      if (raw.startsWith("$") || raw.startsWith(".")) {
+        throw new Exception("ID's may not start with '$' or '.'")
+      } else ID(raw)
+    }
+  }
 
   case class Read(kind: DataType, pos: Expression, align: Option[Long] = None) extends Expression {
     override def toCode: String = {
@@ -41,14 +48,6 @@ object Expression {
     }
   }
 
-  case class InfixOp(lhs: Expression, op: ArithOp, rhs: Expression) extends Expression {
-    override def toCode: String = s"${lhs.toCode} ${op.toCode} ${rhs.toCode}"
-
-    override def needParen: Boolean = true
-  }
-  case class PrefixOp(op: PreOp, target: Expression) extends Expression {
-    override def toCode: String = s"${op.toCode}${target.toCode}"
-  }
   case class PrimOp(op: Primitive, args: Seq[Expression]) extends Expression {
     override def toCode: String = s"${op.toCode}(${args.map(_.toCode).mkString(", ")})"
   }

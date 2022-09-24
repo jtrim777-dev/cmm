@@ -25,12 +25,11 @@ object Statement {
     }
   }
 
-  case class IfStmt(lhs: Expression, op: RelOp, rhs: Expression,
-                    exec: Block, elseExec: Option[Block]) extends Statement {
+  case class IfStmt(cond: Expression, exec: Block, elseExec: Option[Block]) extends Statement {
     override def toCode: String = {
       val ep = elseExec.map(b => s" else {\n${b.toCode}\n}").getOrElse("")
 
-      s"if ${lhs.toWrappedCode} ${op.toCode} ${rhs.toWrappedCode} {\n${exec.toCode}\n}$ep\n"
+      s"if ${cond.toCode} {\n${exec.toCode}\n}$ep\n"
     }
   }
 

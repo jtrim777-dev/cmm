@@ -8,7 +8,7 @@ def import_bazeldist():
         type = "zip",
         strip_prefix = "rules_kotlin-c2519b00299cff9df22267e8359784e9948dba67",
         sha256 = "1455f2ec4bf7ea12d2c90b0dfd6402553c3bb6cbc0271023e2e01ccdefb4a49a",
-    )    
+    )
 
     http_archive(
         name = "rules_jvm_external",
@@ -25,7 +25,7 @@ def import_bazeldist():
     http_archive(
         name = "bazeldist",
         url = "https://maven.jtrim777.dev/releases/dev/jtrim777/bazeldist/0.1.0/bazeldist-all.tar.gz",
-        sha256 = "98c2549314d115550c697d378b4b583f2653ff82822660839a3940977aee2573",
+        sha256 = "23aae252af315c80d56c6af5b68ca99b0aed63c8a44c48412866e2d54f178c4d",
     )
 
     http_archive(

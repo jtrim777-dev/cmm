@@ -2,9 +2,7 @@ package dev.jtrim777.cmm
 package parse
 
 import org.parboiled2._
-import lang.{Expression => exp}
-import lang.DataType
-import lang.ArithOp
+import lang.{DataType, Primitive, Expression => exp, Statement => stmt}
 
 class ParserImpl(val input: ParserInput) extends Parser {
   import ParserImpl._
@@ -56,10 +54,10 @@ class ParserImpl(val input: ParserInput) extends Parser {
   def RC: Rule0 = rule { "}".wsl }
 
   def CoreID: Rule0 = rule {
-    ("_" | CharPredicate.Alpha) ~ zeroOrMore(CharPredicate.AlphaNum | ch('_'))
+    ("_" | CharPredicate.Alpha) ~ zeroOrMore(CharPredicate.AlphaNum | ch('_') | ch('.') | ch('$'))
   }
   def CappedID: Rule1[exp.ID] = rule {
-    (capture(CoreID) ~> exp.ID) ~ !(CharPredicate.AlphaNum | '_')
+    (capture(CoreID) ~> exp.ID.fromSource) ~ !(CharPredicate.AlphaNum | '_')
   }
   def ID: Rule1[exp.ID] = rule {
     CappedID ~ WSLOp
@@ -87,8 +85,8 @@ class ParserImpl(val input: ParserInput) extends Parser {
   }
   // TODO: Floating point support
 
-  def OperatorA: Rule1[ArithOp] = rule {
-    ("+" | "-" | "*" | "/" | "%" | "&" | "|" | "^" | "<<" | ">>")
+  def Operator: Rule1[Primitive] = rule {
+    capture(oneOrMore("!%^&*+_/><~")) ~ WSLOp ~> Primitive.parseOperator
   }
 
   def TypeName: Rule1[DataType] = rule {
@@ -99,12 +97,30 @@ class ParserImpl(val input: ParserInput) extends Parser {
     TypeName ~ (LC ~ IntLiteral ~ RC).? ~ LB ~ Expr ~ RB ~> {(t:DataType, a:Option[Long], p:exp) => exp.Read(t, p, a)}
   }
 
+  def PrimApp: ExprRule = rule {
+    IDNoRet ~ LP ~ Expr.* ~ RP ~> {(f:exp.ID, args: Seq[exp]) => exp.PrimOp(Primitive.parse(f.name), args)}
+  }
 
+  def Operation: ExprRule = rule {
+    Expr ~ Operator ~ Expr ~> {(lhs:exp, op:Primitive, rhs:exp) => exp.PrimOp(op, Seq(lhs, rhs))}
+  }
 
-  def Expr: ExprRule = ???
+  def Expr: ExprRule = rule {
+    ReadExpr | PrimApp | Operation | ID | IntConstant
+  }
 
+  def End: Rule0 = rule {
+    ";" ~ WSLOp
+  }
+
+  def Skip: StmtRule = rule {
+    atomic("skip") ~ WSOp ~ End ~ push(stmt.Skip)
+  }
+
+  def Stmt: StmtRule = ???
 }
 
 object ParserImpl {
   type ExprRule = Rule1[exp]
+  type StmtRule = Rule1[stmt]
 }
