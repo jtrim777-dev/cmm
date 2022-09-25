@@ -8,4 +8,14 @@ case class Program(ports: Seq[SymbolPort], dataBlocks: Seq[DataBlock], procedure
   def toCode: String = {
     (ports ++ dataBlocks ++ procedures).map(_.toCode).mkString("\n")
   }
+
+  def imports: Seq[ProgramSegment.SymbolImport] = ports.collect {
+    case i:ProgramSegment.SymbolImport => i
+  }
+
+  def exports: Seq[ProgramSegment.SymbolExport] = ports.collect {
+    case i: ProgramSegment.SymbolExport => i
+  }
+
+  def dataHead: DataBlock = if (dataBlocks.isEmpty) DataBlock(Seq.empty) else dataBlocks.head
 }

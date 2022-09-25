@@ -11,6 +11,12 @@ trait ISADSL[Arch <: ISA] {
   type VirtValue = (VirtualRegister[Arch], DataType)
   type Instrs = ISeq[Arch]
 
+  object Instrs {
+    def empty: Instrs = ISeq.empty[Arch]
+
+    def apply(is: Arch#Instr*): Instrs = ISeq.apply[Arch](is:_*)
+  }
+
   protected def resolveVirtualRegister(vr: VirtualRegister[Arch]): Arch#Arg
 
   def mov(src: Value, dst: Arch#Arg): Instrs

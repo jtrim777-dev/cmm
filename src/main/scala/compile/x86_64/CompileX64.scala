@@ -1,25 +1,45 @@
 package dev.jtrim777.cmm
 package compile.x86_64
 
-import compile.{CompilationContext, CompilePhase, CompiledProgram, genID, raise, verify}
-import isa.{ISeq, Label}
-import isa.x86_64.{ArchX64, InstrCond}
+import Phase.Printer
+import compile._
+import isa.x86_64.X64.argType._
 import isa.x86_64.X64Instr._
 import isa.x86_64.dsl._
-import isa.x86_64.X64.argType._
 import isa.x86_64.registers._
-import lang.{DataType, Expression, Primitive, Program, Statement}
+import isa.x86_64.{ArchX64, InstrCond}
+import isa.{ISeq, Label}
+import lang.ProgramSegment.ProcDefn
+import lang._
 
 import cats.effect.IO
-import cats.effect.IO.{defer, pure}
-import cats.effect.syntax._
+import cats.effect.IO.pure
 import cats.implicits._
-import dev.jtrim777.cmm.lang.ProgramSegment.ProcDefn
+
+import scala.collection.immutable.Seq
 
 object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
-  override def body: Phase[IO, Program, CompiledProgram[ArchX64]] = ???
-
   type Context = CompilationContext[ArchX64]
+
+  override def execute(input: Program, log: Printer[IO]): IO[CompiledProgram[ArchX64]] = {
+    for {
+      baseContext <- generateBaseContext(input)
+      imps = input.imports.map(_.name)
+      exps = input.exports.map(_.name)
+      blocks <- input.procedures.map(p => compileProcedure(p, baseContext)).sequence
+    } yield CompiledProgram(input.dataHead, blocks, imps, exps)
+  }
+
+  def generateBaseContext(prog: Program): IO[Context] = IO {
+    val b1 = prog.dataBlocks.flatMap(_.decls)
+      .foldLeft(CompilationContext[ArchX64](Map.empty, 0, 0)) { case (acc, decl) =>
+        acc.enscope(decl.name, CompilationContext.DataLabel(decl.kind, decl.count, LabelRef(decl.name)))
+      }
+
+    prog.procedures.foldLeft(b1) { case (acc, proc) =>
+      acc.enscope(proc.name, CompilationContext.Procedure(proc.name))
+    }
+  }
 
   def compileExpression(expr: Expression, ctx: Context, target: Register = RAX): IO[Instrs] = expr match {
     case Expression.CInt(value) => MOV(value.const, target).wrap.pure
@@ -36,51 +56,51 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
           rez + MOV(Offset(target, 0.const), target, kind.operandSize)
         }
       }
-
-    case Expression.Operation(op, args) =>
-      /*
-      val (lhv, lt) = helpers.argFromImmediate(lhs, ctx)
-      val (rhv, rt) = helpers.argFromImmediate(rhs, ctx)
-      val selTyp = lt.bounding(rt).get
-
-      val normPrepare = helpers.typedMov((lhv, lt), (target, selTyp), !op.unsigned) ++
-        helpers.typedMov((rhv, rt), (MovInterm, selTyp), !op.unsigned)
-
-      val toRep = (Set(RAX, RDX) - target).toSeq
-      val extPrepare = toRep.map(PUSH.apply(_)) ++
-        helpers.typedMov((lhv, lt), (RAX, selTyp), !op.unsigned) ++
-        (if (rhv.isInstanceOf[Offset]) {
-          helpers.typedMov((rhv, rt), (MovInterm, selTyp), !op.unsigned)
-        } else Seq.empty)
-      val extRestore = toRep.map(POP.apply(_))
-      val extRight: ISArg.RMArg = rhv match {
-        case ra:ISArg.RMArg => ra
-        case _ => MovInterm
-      }
-
-      op match {
-        case _:ArithOp.Add => normPrepare :+ ADD(target, MovInterm)
-        case _:ArithOp.Sub => normPrepare :+ SUB(target, MovInterm)
-        case m:ArithOp.Mul if m.unsigned =>
-          val i1 = MUL(extRight, selTyp.asSize)
-
-          ???
-        case _:ArithOp.Mul => ???
-        case d:ArithOp.Div if d.unsigned => ???
-        case _:ArithOp.Div => ???
-        case m:ArithOp.Mod if m.unsigned => ???
-        case _:ArithOp.Mod => ???
-        case ArithOp.And => ???
-        case ArithOp.Or => ???
-        case ArithOp.Xor => ???
-        case ArithOp.ShiftL => ???
-        case ArithOp.ShiftR(signed) => ???
-      }
-      */
-      ???
+    case Expression.Operation(op, args) => compileOperation(op, args, ctx)
   }
 
-  def compileOperation(op: Primitive, args: Seq[Value]): IO[Instrs] = ???
+  def compileOperation(op: Primitive, args: Seq[Expression], ctx: Context): IO[Instrs] = {
+    /*
+          val (lhv, lt) = helpers.argFromImmediate(lhs, ctx)
+          val (rhv, rt) = helpers.argFromImmediate(rhs, ctx)
+          val selTyp = lt.bounding(rt).get
+
+          val normPrepare = helpers.typedMov((lhv, lt), (target, selTyp), !op.unsigned) ++
+            helpers.typedMov((rhv, rt), (MovInterm, selTyp), !op.unsigned)
+
+          val toRep = (Set(RAX, RDX) - target).toSeq
+          val extPrepare = toRep.map(PUSH.apply(_)) ++
+            helpers.typedMov((lhv, lt), (RAX, selTyp), !op.unsigned) ++
+            (if (rhv.isInstanceOf[Offset]) {
+              helpers.typedMov((rhv, rt), (MovInterm, selTyp), !op.unsigned)
+            } else Seq.empty)
+          val extRestore = toRep.map(POP.apply(_))
+          val extRight: ISArg.RMArg = rhv match {
+            case ra:ISArg.RMArg => ra
+            case _ => MovInterm
+          }
+
+          op match {
+            case _:ArithOp.Add => normPrepare :+ ADD(target, MovInterm)
+            case _:ArithOp.Sub => normPrepare :+ SUB(target, MovInterm)
+            case m:ArithOp.Mul if m.unsigned =>
+              val i1 = MUL(extRight, selTyp.asSize)
+
+              ???
+            case _:ArithOp.Mul => ???
+            case d:ArithOp.Div if d.unsigned => ???
+            case _:ArithOp.Div => ???
+            case m:ArithOp.Mod if m.unsigned => ???
+            case _:ArithOp.Mod => ???
+            case ArithOp.And => ???
+            case ArithOp.Or => ???
+            case ArithOp.Xor => ???
+            case ArithOp.ShiftL => ???
+            case ArithOp.ShiftR(signed) => ???
+          }
+          */
+    ???
+  }
 
   def getType(expr: Expression, ctx: Context): IO[DataType] = expr match {
     case Expression.CInt(_) => DataType.Word8.pure[IO]
@@ -100,46 +120,6 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
     }
   }
 
-  //  def compileCondJump(lt: DataType, rt: DataType, op: Primitive, target: LabelRef): IO[Instrs] = {
-  //    if (lt.superName != rt.superName) {
-  //      raise("cond. jump", s"$lt and $rt cannot be compared")
-  //    } else if (lt.superName == "float" || op.floating) {
-  //      raise("cond. jump", "Floating point ops are not yet supported")
-  //    } else {
-  //      val jumpCond: InstrCond = op match {
-  //        case Primitive.Eq => InstrCond.Eq
-  //        case Primitive.NEq => InstrCond.NEq
-  //        case Primitive.ULT => InstrCond.Below
-  //        case Primitive.LT => InstrCond.Lt
-  //        case Primitive.ULTE => InstrCond.NAbove
-  //        case Primitive.LTE => InstrCond.LEq
-  //        case Primitive.UGT => InstrCond.Above
-  //        case Primitive.GT => InstrCond.Gt
-  //        case Primitive.UGTE => InstrCond.NBelow
-  //        case Primitive.GTE => InstrCond.GEq
-  //        case _ => InstrCond.Eq
-  //      }
-  //
-  //      val prepAndFin: IO[(Instrs, DataType)] = if (lt == rt) {
-  //        (ISeq[ArchX64](), lt).pure
-  //      } else if (lt.bytes < rt.bytes) {
-  //        IO((value(RAX, lt).moveTo(value(RAX, rt), !op.unsigned), rt))
-  //      } else {
-  //        IO((value(SecTarget, rt).moveTo(value(SecTarget, lt), !op.unsigned), lt))
-  //      }
-  //
-  //      for {
-  //        pfr <- prepAndFin
-  //        (prefix, finTyp) = pfr
-  //        exec <- if (Primitive.Comparators.contains(op)) {
-  //          CMP(SecTarget, RAX, finTyp.operandSize).wrap.pure[IO]
-  //        } else {
-  //          compileOperation(op, Seq(value(RAX, finTyp), value(SecTarget, finTyp)))
-  //        }
-  //      } yield prefix ++ exec + J(jumpCond, target)
-  //    }
-  //  }
-
   def conditionTypeForExpr(expr: Expression): InstrCond = expr match {
     case Expression.Operation(op, _) => op match {
       case Primitive.Eq => InstrCond.Eq
@@ -158,53 +138,65 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
   }
 
   /**
+   * Compile the mess of steps required for a tail call jump
    *
-   * @param args
-   * @param ctx
    * @return (Prelude instructions, cleanup instructions, updated context)
    */
   def compileJumpShuffle(args: Seq[Expression], ctx: Context): IO[(Instrs, Instrs, Context)] = {
-    val needsShuffle = args.length != ctx.procArity && (args.length > 6 || ctx.procArity > 6)
+    for {
+      needsShuffle <- IO.pure(args.length != ctx.procArity && (args.length > 6 || ctx.procArity > 6))
 
-    val savedParams = args.flatMap(helpers.findParameters(_, ctx))
-    val pushParams = savedParams.flatMap(p => safePush(helpers.argPosToVR(p.index).asArg))
-    val updatedCtx = savedParams.foldLeft(ctx) { (c, p) =>
-      c.addLocal(p.name, p.kind, 8)
-    }
+      savedParams <- args.map(findParameters(_, ctx)).sequence.map(_.flatten)
+      pushParams <- IO(ISeq.flatten(savedParams.map(p => fxArg(p.index).resolve.push)))
+      updatedCtx <- IO(savedParams.foldLeft(ctx) { (c, p) =>
+        c.addLocal(p.name, p.kind, 8)
+      })
 
-    val argStart = Math.max((ctx.procArity - 5) * 8, 8)
+      argStart = Math.max((ctx.procArity - 5) * 8, 8)
 
-    val saveCore = if (needsShuffle) Seq(
-      MOV(Offset(RBP, 0.const), SecTarget),
-      MOV(Offset(RBP, 8.const), RBX)
-    ) else Seq.empty
+      saveCore = if (needsShuffle) Instrs(
+        MOV(Offset(RBP, 0.const), SecTarget),
+        MOV(Offset(RBP, 8.const), RBX)
+      ) else Instrs.empty
 
-    val updateArgs = args.zipWithIndex.flatMap { case (arg, i) =>
-      val ca = compileExpression(arg, updatedCtx)
-      val at = getType(arg, ctx)
+      updateArgs <- args.zipWithIndex.map { case (arg, i) =>
+        for {
+          ca <- compileExpression(arg, updatedCtx)
+          at <- getType(arg, ctx)
+          copy <- IO {
+            if (i < 6) {
+              value(RAX, at) moveTo fxArg(i)
+            } else {
+              val offset = ((i - 6) * -8) + argStart
+              value(RAX, at) moveTo Offset(RBP, offset.const)
+            }
+          }
+        } yield ca ++ copy
+      }.sequence.map(ISeq.flatten)
 
-      val copy = if (i < 6) {
-        movTo(helpers.argPosToVR(i), RAX, at)
-      } else {
-        val offset = ((i - 6) * -8) + argStart
-        saveMov(RAX, Offset(RBP, offset.const), at)
+      reset = if (needsShuffle) {
+        val raPos = argStart - Math.max((args.length - 6) * 8, 0)
+        Instrs(
+          ADD((raPos - 8).const, RBP),
+          MOV(RBX, Offset(RBP, 8.const)),
+          MOV(SecTarget, Offset(RBP, 0.const)),
+        )
+      } else Instrs.empty
+
+      clearStack = Instrs(MOV(RBP, RSP))
+    } yield (pushParams ++ saveCore ++ updateArgs, reset ++ clearStack, updatedCtx)
+  }
+
+  def findParameters(expr: Expression, ctx: Context): IO[Seq[CompilationContext.ProcParam[ArchX64]]] = expr match {
+    case Expression.ID(name) =>
+      ctx.scope.get(name).collect {
+        case p: CompilationContext.ProcParam[ArchX64] => Seq(p)
+      } match {
+        case Some(v) => IO.pure(v)
+        case None => raise("jump", s"$name is not in scope")
       }
-
-      ca ++ copy
-    }
-
-    val reset = if (needsShuffle) {
-      val raPos = argStart - Math.max((args.length - 6) * 8, 0)
-      Seq(
-        ADD((raPos - 8).const, RBP),
-        MOV(RBX, Offset(RBP, 8.const)),
-        MOV(SecTarget, Offset(RBP, 0.const)),
-      )
-    } else Seq.empty
-
-    val clearStack = Seq(MOV(RBP, RSP))
-
-    (pushParams ++ saveCore ++ updateArgs, reset ++ clearStack, updatedCtx)
+    case Expression.Read(_, pos, _) => findParameters(pos, ctx)
+    case Expression.Operation(_, args) => args.map(findParameters(_, ctx)).sequence.map(_.flatten)
   }
 
   def compileProcedureID(expr: Expression, ctx: Context): IO[(Instrs, Callable)] = {

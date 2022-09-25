@@ -8,7 +8,7 @@ import cats.effect.IO
 import java.util.UUID
 
 package object compile {
-  type CompilePhase[Arch <: ISA] = Phase.Group[IO, Program, CompiledProgram[Arch]]
+  type CompilePhase[Arch <: ISA] = Phase.Node[IO, Program, CompiledProgram[Arch]]
 
   case class CompilationError(region: String, message: String) extends Exception(s"Error compiling $region: $message")
 
