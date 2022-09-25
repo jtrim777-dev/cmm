@@ -6,13 +6,13 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 
 sealed abstract class Phase[F[_] : Sync, I, O](val name: String) {
-  private[Phase] def execute(input: I, depth: Int, order: Int): F[O]
+  protected def execute(input: I, depth: Int, order: Int): F[O]
 
   def andThen[OO](next: Phase[F, O, OO]): Phase[F, I, OO] = Phase.Chain("", this, next)
 
   def *>[OO](next: Phase[F, O, OO]): Phase[F, I, OO] = this.andThen(next)
 
-  private[Phase] def logMethod(depth: Int, order: Int): Phase.Printer[F] = {
+  protected def logMethod(depth: Int, order: Int): Phase.Printer[F] = {
     ???
   }
 }
@@ -21,14 +21,14 @@ object Phase {
   type Printer[F[_]] = Kleisli[F, String, Unit]
 
   abstract class Node[F[_] : Sync, I, O](name: String) extends Phase[F, I, O](name) {
-    override private[Phase] def execute(input: I, depth: Int, order: Int): F[O] = execute(input, logMethod(depth, order))
+    override protected def execute(input: I, depth: Int, order: Int): F[O] = execute(input, logMethod(depth, order))
 
     def execute(input: I, log: Printer[F]): F[O]
   }
 
   case class Chain[F[_] : Sync, I, M, O](override val name: String,
                                          head: Phase[F, I, M], tail: Phase[F, M, O]) extends Phase[F, I, O](name) {
-    override private[Phase] def execute(input: I, depth: Int, order: Int): F[O] = {
+    override protected def execute(input: I, depth: Int, order: Int): F[O] = {
       for {
         interm <- head.execute(input, depth, order)
         rez <- tail.execute(interm, depth, order + 1)
@@ -41,7 +41,7 @@ object Phase {
   }
 
   abstract class Group[F[_] : Sync, I, O](name: String) extends Phase[F, I, O](name) {
-    override private[Phase] def execute(input: I, depth: Int, order: Int): F[O] = {
+    override protected def execute(input: I, depth: Int, order: Int): F[O] = {
       for {
         o1 <- preExecute(input, logMethod(depth, order))
         o2 <- body.execute(o1, depth + 1, 0)
@@ -57,7 +57,7 @@ object Phase {
   }
 
   def check[F[_] : Sync, I](behavior: Phase[F, I, Unit]): Phase[F, I, I] = new Phase[F, I, I](behavior.name) {
-    override private[Phase] def execute(input: I, depth: Int, order: Int): F[I] =
+    override protected def execute(input: I, depth: Int, order: Int): F[I] =
       behavior.execute(input, depth, order).map(_ => input)
   }
 

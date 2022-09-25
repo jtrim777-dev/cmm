@@ -136,14 +136,14 @@ object Prepare extends Phase.Group[IO, Program, Program]("prepare") {
           case Assn(n, e) if n == nn.toCode => Assn(name, e)
           case o => o
         }
-        Block(sts: _*)
+        Block(sts)
       }
     }
     case Write(kind, pos, value, align) => if (isMemable(pos) && isNormal(value)) pure(stmt) else {
       for {
         np <- normalize(pos, "cmm$norm$pos$")
         nv <- normalize(value, "cmm$norm$value$")
-      } yield Block((np._1 ++ nv._1 :+ Write(kind, np._2, nv._2, align)):_*)
+      } yield Block(np._1 ++ nv._1 :+ Write(kind, np._2, nv._2, align))
     }
     case IfStmt(cond, exec, elseExec) => {
       for {
@@ -160,18 +160,18 @@ object Prepare extends Phase.Group[IO, Program, Program]("prepare") {
     case Jump(proc, args@_*) =>
       normForCall(proc, args).map { case (work, np, nas) =>
         if (work.isEmpty) stmt else {
-          Block(work :+ Jump(np, nas: _*): _*)
+          Block(work :+ Jump(np, nas: _*))
         }
       }
     case Call(results, proc, args@_*) =>
       normForCall(proc, args).map { case (work, np, nas) =>
         if (work.isEmpty) stmt else {
-          Block(work :+ Call(results, np, nas: _*): _*)
+          Block(work :+ Call(results, np, nas: _*))
         }
       }
     case Return(results@_*) => if (results.forall(isImmediate)) pure(stmt) else {
       normMany(results, "rez").map { case (argWork, nrez) =>
-        Block(argWork :+ Return(nrez: _*): _*)
+        Block(argWork :+ Return(nrez: _*))
       }
     }
     case Block(stmts) => stmts.map(normalize).sequence.map(Block.apply)

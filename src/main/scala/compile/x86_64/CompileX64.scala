@@ -59,6 +59,18 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
     case Expression.Operation(op, args) => compileOperation(op, args, ctx)
   }
 
+  def argFromImmExpr(expr: Expression, ctx: CompilationContext[ArchX64]): Value = expr match {
+    case Expression.CInt(value) => (value.const, DataType.Word8)
+    case Expression.CFlot(_) => throw new IllegalArgumentException("Error compiling float literal: Floats are not yet supported")
+    case Expression.ID(name) => ctx.scope(name) match {
+      case CompilationContext.ProcParam(_, index, kind) => (fxArg(index).resolve, kind)
+      case CompilationContext.LocalVar(kind, pos) => (pos.resolve, kind)
+      case CompilationContext.Procedure(name) => (LabelRef.proc(name), DataType.Word8)
+      case CompilationContext.DataLabel(_, _, ref) => (ref, DataType.Word8)
+    }
+    case _ => throw new IllegalArgumentException(s"Error compiling expression: $expr is not immediate")
+  }
+
   def compileOperation(op: Primitive, args: Seq[Expression], ctx: Context): IO[Instrs] = {
     /*
           val (lhv, lt) = helpers.argFromImmediate(lhs, ctx)

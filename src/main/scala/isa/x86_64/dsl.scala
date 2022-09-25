@@ -1,7 +1,6 @@
 package dev.jtrim777.cmm
 package isa.x86_64
 
-import compile.CompilationContext
 import isa.x86_64.registers._
 import isa.{ISADSL, ISArg, ISeq, VirtualRegister}
 import lang.{DataType, Expression}
@@ -69,18 +68,6 @@ object dsl extends ISADSL[ArchX64] {
   override protected def makeConstant(value: Long): Const = Constant(value)
 
   override protected def makeUnsignedConstant(value: Long): Const = UConstant(value)
-
-  override protected def argFromImmExpr(expr: Expression, ctx: CompilationContext[ArchX64]): Value = expr match {
-    case Expression.CInt(value) => (value.const, DataType.Word8)
-    case Expression.CFlot(_) => throw new IllegalArgumentException("Error compiling float literal: Floats are not yet supported")
-    case Expression.ID(name) => ctx.scope(name) match {
-      case CompilationContext.ProcParam(_, index, kind) => (fxArg(index).resolve, kind)
-      case CompilationContext.LocalVar(kind, pos) => (pos.resolve, kind)
-      case CompilationContext.Procedure(name) => (LabelRef.proc(name), DataType.Word8)
-      case CompilationContext.DataLabel(_, _, ref) => (ref, DataType.Word8)
-    }
-    case _ => throw new IllegalArgumentException(s"Error compiling expression: $expr is not immediate")
-  }
 
   implicit class DTOps(dt: DataType) {
     import OpdSize._

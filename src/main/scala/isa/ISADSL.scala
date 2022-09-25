@@ -1,7 +1,6 @@
 package dev.jtrim777.cmm
 package isa
 
-import compile.CompilationContext
 import lang.{DataType, Expression}
 import isa.ISArg._
 
@@ -34,8 +33,6 @@ trait ISADSL[Arch <: ISA] {
 
   protected def makeConstant(value: Long): Const
   protected def makeUnsignedConstant(value: Long): Const
-
-  protected def argFromImmExpr(expr: Expression, ctx: CompilationContext[Arch]): Value
 
   def value(arg: ISArg, kind: DataType): Value = (arg, kind)
   def value(arg: VirtualRegister, kind: DataType): VirtValue = (arg, kind)
@@ -72,10 +69,6 @@ trait ISADSL[Arch <: ISA] {
   implicit class LongNumSyntax(num: Long) {
     def const: Const = ISADSL.this.makeConstant(num)
     def uconst: Const = ISADSL.this.makeUnsignedConstant(num)
-  }
-
-  implicit class ExprOps(expr: Expression) {
-    def asArg(ctx: CompilationContext[Arch]): Value = ISADSL.this.argFromImmExpr(expr, ctx)
   }
 
   implicit class InstrOps(instr: Arch#Instr) {

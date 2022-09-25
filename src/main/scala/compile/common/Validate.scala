@@ -3,7 +3,6 @@ package compile.common
 
 import lang.ProgramSegment.{DataBlock, ProcDefn}
 import lang.{DataDecl, Expression, Program, ProgramSegment, Statement}
-import util.SEOps
 
 import collection.immutable.Seq
 import Phase.{Printer, check, phase}
