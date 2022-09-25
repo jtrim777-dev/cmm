@@ -1,6 +1,8 @@
 package dev.jtrim777.cmm
 package asm
 
+import collection.immutable.Seq
+
 sealed trait AsmSym {
 
 }

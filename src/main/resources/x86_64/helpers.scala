@@ -3,10 +3,13 @@ package x86_64
 
 import asm.ISArg.{LabelRef, Register}
 import asm.{AsmSym, ISArg}
-import common.{Context, VirtualRegister}
 import lang.{DataType, Expression, RelOp}
 import x86_64.ISAx86_64._
 import x86_64.registers._
+import dev.jtrim777.cmm.compile.CompilationContext
+
+import dev.jtrim777.cmm.isa.VirtualRegister
+import dev.jtrim777.cmm.isa.x86_64.ArchX64
 
 object helpers {
   implicit class VRHelper(vr: VirtualRegister) {
@@ -38,9 +41,9 @@ object helpers {
   Arg 6: R9
   Args 7+: RBP - 8(i + 1)
    */
-  def argPosToVR(ind: Int): VirtualRegister = {
+  def argPosToVR(ind: Int): VirtualRegister[ArchX64] = {
     if (ind < 6) {
-      VirtualRegister.Hardware(Args6(ind))
+      VirtualRegister.Hardware[ArchX64](Args6(ind))
     } else {
       VirtualRegister.StackOffset(8 * (ind - 4)) // args[6] (the 7th arg) is at RBP + 16
     }
@@ -94,14 +97,14 @@ object helpers {
     case other => Seq(MOV(other, MovInterm), PUSH(MovInterm))
   }
 
-  def findParameters(expr: Expression, ctx: Context): Seq[Context.ProcParam] = expr match {
+  def findParameters(expr: Expression, ctx: CompilationContext): Seq[CompilationContext.ProcParam] = expr match {
     case Expression.ID(name) => ctx.scope.get(name).collect {
-      case p:Context.ProcParam => Seq(p)
+      case p:CompilationContext.ProcParam => Seq(p)
     }.getOrElse(Seq.empty)
     case Expression.Read(_, pos, _) => findParameters(pos, ctx)
     case Expression.InfixOp(lhs, _, rhs) => findParameters(lhs, ctx) ++ findParameters(rhs, ctx)
     case Expression.PrefixOp(_, target) => findParameters(target, ctx)
-    case Expression.PrimOp(_, args) => args.flatMap(findParameters(_, ctx))
+    case Expression.Operation(_, args) => args.flatMap(findParameters(_, ctx))
   }
 
   implicit class NumSyntax(num: Int) {
@@ -114,14 +117,14 @@ object helpers {
     def uconst: ISArg.Const = ISArg.UConstant(num)
   }
 
-  def argFromImmediate(expr: Expression, ctx: Context): (ISArg, DataType) = expr match {
+  def argFromImmediate(expr: Expression, ctx: CompilationContext): (ISArg, DataType) = expr match {
     case Expression.CInt(value) => (value.const, DataType.Word8)
     case Expression.CFlot(_) => throw new IllegalArgumentException("Error compiling float literal: Floats are not yet supported")
     case Expression.ID(name) => ctx.scope(name) match {
-      case Context.ProcParam(_, index, kind) => (argPosToVR(index).asArg, kind)
-      case Context.LocalVar(kind, pos) => (pos.asArg, kind)
-      case Context.Procedure(name) => (LabelRef.proc(name), DataType.Word8)
-      case Context.DataLabel(_, _, ref) => (ref, DataType.Word8)
+      case CompilationContext.ProcParam(_, index, kind) => (argPosToVR(index).asArg, kind)
+      case CompilationContext.LocalVar(kind, pos) => (pos.asArg, kind)
+      case CompilationContext.Procedure(name) => (LabelRef.proc(name), DataType.Word8)
+      case CompilationContext.DataLabel(_, _, ref) => (ref, DataType.Word8)
     }
     case _ => throw new IllegalArgumentException(s"Error compiling expression: $expr is not immediate")
   }

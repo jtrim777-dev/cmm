@@ -7,11 +7,11 @@ import asm.{AsmSym, ISArg}
 import asm.AsmSym.Label
 import asm.ISArg._
 import dev.jtrim777.cmm.lang.Statement.Jump
-import common.Context
 import lang.ProgramSegment.ProcDefn
 import lang.{ArithOp, DataType, Expression, OpFlag, RelOp, Statement}
 import x86_64.ISAx86_64._
 import x86_64.registers._
+import dev.jtrim777.cmm.compile.CompilationContext
 import helpers.{DTHelper, LongNumSyntax, NumSyntax, VRHelper, movFrom, movTo, safePush, saveMov}
 
 object compile {
@@ -20,14 +20,14 @@ object compile {
   def raise(region: String, problem: String): Nothing =
     throw new IllegalArgumentException(s"Error compiling $region: $problem")
 
-  def compileExpression(expr: Expression, ctx: Context, target: Register = RAX): Output = expr match {
+  def compileExpression(expr: Expression, ctx: CompilationContext, target: Register = RAX): Output = expr match {
     case Expression.CInt(value) => Seq(MOV(value.const, target))
     case Expression.CFlot(_) => raise("float literal", "Floats are not yet supported")
     case Expression.ID(name) => ctx.scope(name) match {
-      case Context.ProcParam(_, index, kind) => movFrom(helpers.argPosToVR(index), target, kind)
-      case Context.LocalVar(kind, pos) => movFrom(pos, target, kind)
-      case Context.Procedure(procID) => Seq(LEAQ(LabelRef.proc(procID), target))
-      case Context.DataLabel(_, _, ref) => Seq(LEAQ(ref, target))
+      case CompilationContext.ProcParam(_, index, kind) => movFrom(helpers.argPosToVR(index), target, kind)
+      case CompilationContext.LocalVar(kind, pos) => movFrom(pos, target, kind)
+      case CompilationContext.Procedure(procID) => Seq(LEAQ(LabelRef.proc(procID), target))
+      case CompilationContext.DataLabel(_, _, ref) => Seq(LEAQ(ref, target))
     }
     case Expression.Read(kind, pos, align) =>
       if (align.isDefined) raise("read expr.", "Read alignment is not yet supported")
@@ -73,17 +73,17 @@ object compile {
         case ArithOp.ShiftR(signed) => ???
       }
     case Expression.PrefixOp(op, target) => ???
-    case Expression.PrimOp(op, args) => ???
+    case Expression.Operation(op, args) => ???
   }
 
-  def getType(expr: Expression, ctx: Context): DataType = expr match {
+  def getType(expr: Expression, ctx: CompilationContext): DataType = expr match {
     case Expression.CInt(_) => DataType.Word8
     case Expression.CFlot(_) => DataType.Flot8
     case Expression.ID(name) => ctx.scope(name) match {
-      case Context.ProcParam(_, _, kind) => kind
-      case Context.LocalVar(kind, _) => kind
-      case Context.Procedure(_) => DataType.Word8
-      case Context.DataLabel(kind, _, _) => kind
+      case CompilationContext.ProcParam(_, _, kind) => kind
+      case CompilationContext.LocalVar(kind, _) => kind
+      case CompilationContext.Procedure(_) => DataType.Word8
+      case CompilationContext.DataLabel(kind, _, _) => kind
     }
     case Expression.Read(kind, _, _) => kind
     case Expression.InfixOp(lhs, op, rhs) =>
@@ -98,7 +98,7 @@ object compile {
         out.getOrElse(DataType.Flot8)
       }
     case Expression.PrefixOp(_, target) => getType(target, ctx)
-    case Expression.PrimOp(op, args) => op.output(args.map(getType(_, ctx)))
+    case Expression.Operation(op, args) => op.output(args.map(getType(_, ctx)))
   }
 
   def compileCondJump(lt: DataType, rt: DataType, op: RelOp, target: LabelRef): Output = {
@@ -132,7 +132,7 @@ object compile {
     extension ++ Seq(CMP(SecTarget, RAX, finTyp.asSize), J(jumpCond, target))
   }
 
-  def compileJumpShuffle(args: Seq[Expression], ctx: Context): (Output, Output, Context) = {
+  def compileJumpShuffle(args: Seq[Expression], ctx: CompilationContext): (Output, Output, CompilationContext) = {
     val needsShuffle = args.length != ctx.procArity && (args.length > 6 || ctx.procArity > 6)
 
     val savedParams = args.flatMap(helpers.findParameters(_, ctx))
@@ -176,24 +176,24 @@ object compile {
     (pushParams ++ saveCore ++ updateArgs, reset ++ clearStack, updatedCtx)
   }
 
-  def compileProcedureID(expr: Expression, ctx: Context): (Output, Callable) = {
+  def compileProcedureID(expr: Expression, ctx: CompilationContext): (Output, Callable) = {
     expr match {
       case Expression.ID(name) => ctx.scope.get(name) match {
-        case Some(Context.Procedure(_)) => (Seq.empty, LabelRef.proc(name))
+        case Some(CompilationContext.Procedure(_)) => (Seq.empty, LabelRef.proc(name))
         case _ => (compileExpression(expr, ctx), RAX)
       }
       case _ => (compileExpression(expr, ctx), RAX)
     }
   }
 
-  def compileStatement(stmt: Statement, ctx: Context, bid: String): (Output, Context) = stmt match {
+  def compileStatement(stmt: Statement, ctx: CompilationContext, bid: String): (Output, CompilationContext) = stmt match {
     case Statement.Skip => (Seq(NOP), ctx)
     case Statement.VarDecl(kind, names@_*) =>
       val nc = names.foldLeft(ctx) { (c, n) => c.addLocal(n, kind, 8) }
       (Seq.empty, nc)
     case Statement.Assn(name, value) =>
       val cell = ctx.scope.getOrElse(name, raise("assignment", s"Cannot assign to undeclared variable $name")) match {
-        case v: Context.LocalVar => v
+        case v: CompilationContext.LocalVar => v
         case _ => raise("assignment", s"Cannot assign to name $name which is not a local var")
       }
 
@@ -261,7 +261,7 @@ object compile {
       (proci, ctx)
     case Statement.Call(results, proc, args@_*) =>
       val resultPositions = results.map(ctx.scope.apply).map {
-        case v:Context.LocalVar => v
+        case v:CompilationContext.LocalVar => v
         case o => raise("call", s"Invalid variable $o for return value")
       }
 
@@ -305,7 +305,7 @@ object compile {
     case b:Statement.Block => (compileBlock(b, ctx), ctx)
   }
 
-  def compileBlock(block: Statement.Block, ctx: Context): Output = {
+  def compileBlock(block: Statement.Block, ctx: CompilationContext): Output = {
     val id = newID()
 
     block.stmts.foldLeft((Seq.empty[AsmSym], ctx)) { case ((rez, context), stmt) =>
@@ -314,7 +314,7 @@ object compile {
     }._1
   }
 
-  def compileProcedure(defn: ProcDefn, context: Context): Output = {
+  def compileProcedure(defn: ProcDefn, context: CompilationContext): Output = {
     val depth = defn.wordUsage(8)
     val truDepth = if (depth % 2 == 1) depth + 1 else depth
 
@@ -327,7 +327,7 @@ object compile {
     )
 
     val entryContext = defn.params.zipWithIndex.foldLeft(context) { case (ctx, ((name, dt), ind)) =>
-      ctx.enscope(name, Context.ProcParam(name, ind, dt))
+      ctx.enscope(name, CompilationContext.ProcParam(name, ind, dt))
     }
 
     val body = compileBlock(defn.body, entryContext.setArity(defn.params.length))
