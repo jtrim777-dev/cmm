@@ -50,11 +50,16 @@ object Phase {
       } yield o3
     }
 
-    def preExecute(input: I, log: Printer[F]): F[I]
+    def preExecute(input: I, log: Printer[F]): F[I] = implicitly[Sync[F]].pure(input)
 
     def body: Phase[F, I, O]
 
-    def postExecute(result: O, log: Printer[F]): F[O]
+    def postExecute(result: O, log: Printer[F]): F[O] = implicitly[Sync[F]].pure(result)
+  }
+
+  def check[F[_] : Sync, I](behavior: Phase[F, I, Unit]): Phase[F, I, I] = new Phase[F, I, I](behavior.name) {
+    override private[Phase] def execute(input: I, depth: Int, order: Int): F[I] =
+      behavior.execute(input, depth, order).map(_ => input)
   }
 
   def phase[F[_] : Sync, I, O](name: String)(body: (I, Printer[F]) => F[O]): Phase.Node[F, I, O] = new Node[F, I, O](name) {
