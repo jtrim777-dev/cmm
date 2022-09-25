@@ -119,6 +119,8 @@ class ParserImpl(val input: ParserInput) extends Parser {
   }
 
   def Stmt: StmtRule = ???
+
+  def Prog: Rule1[lang.Program] = ???
 }
 
 object ParserImpl {
