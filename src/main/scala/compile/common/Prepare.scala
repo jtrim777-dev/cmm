@@ -174,7 +174,7 @@ object Prepare extends Phase.Group[IO, Program, Program]("prepare") {
         Block(argWork :+ Return(nrez: _*): _*)
       }
     }
-    case Block(stmts@_*) => stmts.map(normalize).sequence.map(Block)
+    case Block(stmts) => stmts.map(normalize).sequence.map(Block.apply)
     case _ => pure(stmt)
   }
 }

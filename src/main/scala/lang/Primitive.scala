@@ -84,7 +84,7 @@ object Primitive {
     case _ => Left("Primitive 'trunc' requires a float and word argument")
   }, floating = true)
 
-  def resize[S <: DataType : ClassTag](name: String, target: _ <: S): Primitive = Primitive(name, 1, {
+  def resize[S <: DataType : ClassTag](name: String, target: S): Primitive = Primitive(name, 1, {
     case (_:S) :: Nil => Right(target)
     case _ =>
       val tnm = implicitly[ClassTag[S]].runtimeClass.getSimpleName.stripSuffix("$").toLowerCase

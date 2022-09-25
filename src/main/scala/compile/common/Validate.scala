@@ -170,7 +170,7 @@ object Validate extends Phase.Group[IO, Program, Program]("validate") {
       }
     case Statement.Return(results@_*) =>
       results.map(checkScope(_, datum, procs, labels)).sequence.map(_ => labels)
-    case Statement.Block(stmts@_*) =>
+    case Statement.Block(stmts) =>
       val bc: IO[Set[String]] = pure(labels)
       stmts.foldLeft(bc) { (cls, st) =>
         cls.flatMap(value => checkScope(st, datum, procs, value))
@@ -214,7 +214,7 @@ object Validate extends Phase.Group[IO, Program, Program]("validate") {
     case Statement.Return(results@_*) => if (results.length > 2) {
       raise("Procedures returning more than 2 values are not supported")
     } else success
-    case Statement.Block(stmts@_*) => stmts.map(validUsages).sequence.map(_ => ())
+    case Statement.Block(stmts) => stmts.map(validUsages).sequence.map(_ => ())
   }
 
   

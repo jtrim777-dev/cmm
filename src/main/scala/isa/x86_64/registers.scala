@@ -1,9 +1,9 @@
 package dev.jtrim777.cmm
 package isa.x86_64
 
-object registers {
-  import X64.argType.Register
+import isa.ISArg.Register
 
+object registers {
   val RAX: Register = Register(0)
   val RBX: Register = Register(1)
   val RCX: Register = Register(2)

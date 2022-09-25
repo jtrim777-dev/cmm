@@ -12,13 +12,13 @@ sealed abstract class Phase[F[_] : Sync, I, O](val name: String) {
 
   def *>[OO](next: Phase[F, O, OO]): Phase[F, I, OO] = this.andThen(next)
 
-  private def logMethod(depth: Int, order: Int): Phase.Printer[F] = {
+  private[Phase] def logMethod(depth: Int, order: Int): Phase.Printer[F] = {
     ???
   }
 }
 
 object Phase {
-  type Printer[F[_] : Sync] = Kleisli[F, String, Unit]
+  type Printer[F[_]] = Kleisli[F, String, Unit]
 
   abstract class Node[F[_] : Sync, I, O](name: String) extends Phase[F, I, O](name) {
     override private[Phase] def execute(input: I, depth: Int, order: Int): F[O] = execute(input, logMethod(depth, order))

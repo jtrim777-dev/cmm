@@ -64,7 +64,7 @@ object Statement {
     } else "return;"
   }
 
-  case class Block(stmts: Statement*) extends Statement {
+  case class Block(stmts: Seq[Statement]) extends Statement {
     override def toCode: String =
       stmts.map(_.toCode).flatMap(_.split('\n')).map(s => "  " + s).mkString("{\n", "\n", "\n}\n")
 

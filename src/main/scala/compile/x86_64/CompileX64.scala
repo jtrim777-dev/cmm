@@ -3,7 +3,7 @@ package compile.x86_64
 
 import Phase.Printer
 import compile._
-import isa.x86_64.X64.argType._
+import isa.ISArg._
 import isa.x86_64.X64Instr._
 import isa.x86_64.dsl._
 import isa.x86_64.registers._
@@ -42,7 +42,7 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
   }
 
   def compileExpression(expr: Expression, ctx: Context, target: Register = RAX): IO[Instrs] = expr match {
-    case Expression.CInt(value) => MOV(value.const, target).wrap.pure
+    case Expression.CInt(value) => MOV(value.const, target).wrap.pure[IO]
     case Expression.CFlot(_) => raise("float literal", "Floats are not yet supported")
     case Expression.ID(name) => IO(ctx.scope(name) match {
       case CompilationContext.ProcParam(_, index, kind) => value(fxArg(index), kind).moveTo(target)
@@ -106,12 +106,12 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
     case Expression.CInt(_) => DataType.Word8.pure[IO]
     case Expression.CFlot(_) => DataType.Flot8.pure[IO]
     case Expression.ID(name) => ctx.scope(name) match {
-      case CompilationContext.ProcParam(_, _, kind) => kind.pure
-      case CompilationContext.LocalVar(kind, _) => kind.pure
+      case CompilationContext.ProcParam(_, _, kind) => pure(kind)
+      case CompilationContext.LocalVar(kind, _) => kind.pure[IO]
       case CompilationContext.Procedure(_) => DataType.Word8.pure[IO]
-      case CompilationContext.DataLabel(kind, _, _) => kind.pure
+      case CompilationContext.DataLabel(kind, _, _) => kind.pure[IO]
     }
-    case Expression.Read(kind, _, _) => kind.pure
+    case Expression.Read(kind, _, _) => kind.pure[IO]
     case Expression.Operation(op, args) => args.map(getType(_, ctx)).sequence.flatMap { argTypes =>
       op.getOutput(argTypes) match {
         case Right(value) => pure(value)
@@ -262,7 +262,7 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
         proc = (condC ++ jumpC ++ execC ++ finJump ++ elseC).labelEnd(Label.endIf(stmtID))
       } yield (proc, ctx)
     case Statement.LocalLabel(name) => pure((ISeq.empty[ArchX64].label(Label.localMark(bid, name)), ctx))
-    case Statement.Goto(label) => (JMP(LabelRef.localMark(bid, label)).wrap, ctx).pure
+    case Statement.Goto(label) => (JMP(LabelRef.localMark(bid, label)).wrap, ctx).pure[IO]
     case Statement.Jump(proc, args@_*) =>
       for {
         cjs <- compileJumpShuffle(args, ctx)

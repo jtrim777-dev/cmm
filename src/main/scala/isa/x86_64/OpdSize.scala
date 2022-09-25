@@ -9,11 +9,8 @@ sealed abstract class OpdSize(val flag: String) extends InstrSuffix {
 
 object OpdSize {
   case object Byt extends OpdSize("b")
-
   case object Word extends OpdSize("w")
-
   case object DblWord extends OpdSize("l")
-
   case object QuadWord extends OpdSize("q")
 
   case class Pair(a: OpdSize, b: OpdSize) extends OpdSize(a.flag + b.flag)
