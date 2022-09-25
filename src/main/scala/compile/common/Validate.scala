@@ -6,12 +6,12 @@ import lang.{DataDecl, Expression, Program, ProgramSegment, Statement}
 import util.SEOps
 
 import collection.immutable.Seq
-import compile.Phase
-import compile.Phase.{Printer, check, phase}
+import Phase.{Printer, check, phase}
 
 import cats.effect.IO
 import cats.effect.IO.pure
 import cats.implicits.toTraverseOps
+import dev.jtrim777.cmm.Phase
 
 object Validate extends Phase.Group[IO, Program, Program]("validate") {
   

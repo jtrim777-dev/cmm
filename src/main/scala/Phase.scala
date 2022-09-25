@@ -1,5 +1,4 @@
 package dev.jtrim777.cmm
-package compile
 
 import cats.data.Kleisli
 import cats.effect.Sync

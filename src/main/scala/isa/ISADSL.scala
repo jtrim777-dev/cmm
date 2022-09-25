@@ -30,18 +30,21 @@ trait ISADSL[Arch <: ISA] {
 
   protected def argFromImmExpr(expr: Expression, ctx: CompilationContext[Arch]): Value
 
+  def value(arg: Arch#Arg, kind: DataType): Value = (arg, kind)
+  def value(arg: VirtualRegister[Arch], kind: DataType): VirtValue = (arg, kind)
+
   implicit class ArgOps(arg: Arch#Arg) {
     def push: Instrs = ISADSL.this.push(arg)
   }
 
   implicit class ValueOps(v: Value) {
-    def mov(dst: Arch#Arg): Instrs = ISADSL.this.mov(v, dst)
+    def moveTo(dst: Arch#Arg): Instrs = ISADSL.this.mov(v, dst)
 
-    def mov(dst: Value): Instrs = ISADSL.this.typedMov(v, dst)
+    def moveTo(dst: Value): Instrs = ISADSL.this.typedMov(v, dst)
 
-    def movSigned(dst: Value): Instrs = ISADSL.this.typedMov(v, dst, sign = true)
+    def moveTo(dst: Value, signed: Boolean): Instrs = ISADSL.this.typedMov(v, dst, sign = signed)
 
-    def mov(dst: VirtualRegister[Arch]): Instrs = ISADSL.this.virtMov(v, dst)
+    def moveTo(dst: VirtualRegister[Arch]): Instrs = ISADSL.this.virtMov(v, dst)
 
     def push: Instrs = ISADSL.this.push(v._1)
   }
@@ -51,7 +54,7 @@ trait ISADSL[Arch <: ISA] {
   }
 
   implicit class VirtValueOps(vv: VirtValue) {
-    def mov(dst: Arch#Arg): Instrs = ISADSL.this.virtMov(vv, dst)
+    def moveTo(dst: Arch#Arg): Instrs = ISADSL.this.virtMov(vv, dst)
   }
 
   implicit class NumSyntax(num: Int) {

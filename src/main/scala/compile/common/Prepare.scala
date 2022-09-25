@@ -5,13 +5,13 @@ import lang.Expression._
 import lang.ProgramSegment.{DataBlock, ProcDefn}
 import lang.Statement._
 import lang._
-import compile.Phase
-import compile.Phase.{Printer, phase}
+import Phase.{Printer, phase}
 
 import collection.immutable.Seq
 import cats.effect.IO
 import cats.implicits.toTraverseOps
 import cats.effect.IO.pure
+import dev.jtrim777.cmm.Phase
 
 object Prepare extends Phase.Group[IO, Program, Program]("prepare") {
   override def body: Phase[IO, Program, Program] = {

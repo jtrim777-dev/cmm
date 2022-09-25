@@ -1,6 +1,5 @@
 package dev.jtrim777.cmm
 
-import compile.Phase
 import lang.Program
 
 import cats.effect.IO

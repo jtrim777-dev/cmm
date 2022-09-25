@@ -3,9 +3,16 @@ package lang
 
 import scala.reflect.ClassTag
 import DataType._
+import collection.immutable.Seq
 
-case class Primitive(name: String, arity: Int, typing: List[DataType] => Either[String, DataType]) {
+case class Primitive(name: String, arity: Int, typing: List[DataType] => Either[String, DataType],
+                     floating: Boolean = false, unsigned: Boolean = false) {
   def toCode: String = name
+
+  def getOutput(inputs: Seq[DataType]): Either[String, DataType] = typing(inputs.toList)
+
+  def markFloating: Primitive = this.copy(floating = true)
+  def markUnsigned: Primitive = this.copy(unsigned = true)
 }
 
 object Primitive {
@@ -36,16 +43,16 @@ object Primitive {
   val Div: Primitive = biCombinator[Word]("div")
   val Mod: Primitive = biCombinator[Word]("mod")
 
-  val UAdd: Primitive = biCombinator[Word]("uadd")
-  val USub: Primitive = biCombinator[Word]("usub")
-  val UMul: Primitive = biCombinator[Word]("umul")
-  val UDiv: Primitive = biCombinator[Word]("udiv")
-  val UMod: Primitive = biCombinator[Word]("umod")
+  val UAdd: Primitive = biCombinator[Word]("uadd").markUnsigned
+  val USub: Primitive = biCombinator[Word]("usub").markUnsigned
+  val UMul: Primitive = biCombinator[Word]("umul").markUnsigned
+  val UDiv: Primitive = biCombinator[Word]("udiv").markUnsigned
+  val UMod: Primitive = biCombinator[Word]("umod").markUnsigned
 
-  val FAdd: Primitive = biCombinator[Flot]("fadd")
-  val FSub: Primitive = biCombinator[Flot]("fsub")
-  val FMul: Primitive = biCombinator[Flot]("fmul")
-  val FDiv: Primitive = biCombinator[Flot]("fdiv")
+  val FAdd: Primitive = biCombinator[Flot]("fadd").markFloating
+  val FSub: Primitive = biCombinator[Flot]("fsub").markFloating
+  val FMul: Primitive = biCombinator[Flot]("fmul").markFloating
+  val FDiv: Primitive = biCombinator[Flot]("fdiv").markFloating
 
   val And: Primitive = biCombinator[Word]("and")
   val Or: Primitive = biCombinator[Word]("or")
@@ -58,24 +65,24 @@ object Primitive {
   })
   val ShiftL: Primitive = shift("shiftl")
   val ShiftR: Primitive = shift("shiftr")
-  val ShiftRA: Primitive = shift("shiftra")
+  val ShiftRA: Primitive = shift("shiftra").markUnsigned
 
   val Abs: Primitive = unaryOp[Word]("abs")
   val Neg: Primitive = unaryOp[Word]("neg")
   val Sign: Primitive = unaryOp[Word]("sign")
 
-  val FAbs: Primitive = unaryOp[Flot]("fabs")
-  val FNeg: Primitive = unaryOp[Flot]("fneg")
-  val FSign: Primitive = unaryOp[Flot]("fsign")
+  val FAbs: Primitive = unaryOp[Flot]("fabs").markFloating
+  val FNeg: Primitive = unaryOp[Flot]("fneg").markFloating
+  val FSign: Primitive = unaryOp[Flot]("fsign").markFloating
 
   val Round: Primitive = Primitive("round", 2, {
     case (a:Flot) :: (_:Word) :: Nil => Right(a)
     case _ => Left("Primitive 'round' requires a float and word argument")
-  })
+  }, floating = true)
   val Trunc: Primitive = Primitive("trunc", 2, {
     case (a:Flot) :: (_:Word) :: Nil => Right(a)
     case _ => Left("Primitive 'trunc' requires a float and word argument")
-  })
+  }, floating = true)
 
   def resize[S <: DataType : ClassTag](name: String, target: _ <: S): Primitive = Primitive(name, 1, {
     case (_:S) :: Nil => Right(target)
@@ -88,13 +95,13 @@ object Primitive {
   val ToWord4: Primitive = resize[Word]("word4", Word4)
   val ToWord8: Primitive = resize[Word]("word8", Word8)
 
-  val ToFloat4: Primitive = resize[Flot]("float4", Flot4)
-  val ToFloat8: Primitive = resize[Flot]("float8", Flot8)
+  val ToFloat4: Primitive = resize[Flot]("float4", Flot4).markFloating
+  val ToFloat8: Primitive = resize[Flot]("float8", Flot8).markFloating
 
   val CastWord: Primitive = Primitive("asWord", 1, {
     case (_:Flot) :: Nil => Right(Word8)
     case _ => Left("Primitive 'asWord' only accepts a float-type argument")
-  })
+  }).markFloating
   val CastFlot: Primitive = Primitive("asFloat", 1, {
     case (_:Word) :: Nil => Right(Flot8)
     case _ => Left("Primitive 'asFloat' only accepts a word-type argument")
@@ -107,12 +114,17 @@ object Primitive {
   val GT: Primitive = comparator[Word]("gt")
   val GTE: Primitive = comparator[Word]("gte")
 
-  val FEq: Primitive = comparator[Flot]("feq")
-  val FNEq: Primitive = comparator[Flot]("fne")
-  val FLT: Primitive = comparator[Flot]("flt")
-  val FLTE: Primitive = comparator[Flot]("flte")
-  val FGT: Primitive = comparator[Flot]("fgt")
-  val FGTE: Primitive = comparator[Flot]("fgte")
+  val ULT: Primitive = comparator[Word]("ult").markUnsigned
+  val ULTE: Primitive = comparator[Word]("ulte").markUnsigned
+  val UGT: Primitive = comparator[Word]("ugt").markUnsigned
+  val UGTE: Primitive = comparator[Word]("ugte").markUnsigned
+
+  val FEq: Primitive = comparator[Flot]("feq").markFloating
+  val FNEq: Primitive = comparator[Flot]("fne").markFloating
+  val FLT: Primitive = comparator[Flot]("flt").markFloating
+  val FLTE: Primitive = comparator[Flot]("flte").markFloating
+  val FGT: Primitive = comparator[Flot]("fgt").markFloating
+  val FGTE: Primitive = comparator[Flot]("fgte").markFloating
 
   val All: List[Primitive] = List(
     Add, Sub, Mul, Div, Mod,
@@ -127,6 +139,13 @@ object Primitive {
     ToFloat4, ToFloat8,
     CastWord, CastFlot,
     Eq, NEq, LT, LTE, GT, GTE,
+    ULT, ULTE, UGT, UGTE,
+    FEq, FNEq, FLT, FLTE, FGT, FGTE
+  )
+
+  val Comparators: List[Primitive] = List(
+    Eq, NEq, LT, LTE, GT, GTE,
+    ULT, ULTE, UGT, UGTE,
     FEq, FNEq, FLT, FLTE, FGT, FGTE
   )
 
