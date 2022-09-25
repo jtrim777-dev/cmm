@@ -33,9 +33,10 @@ object X64Instr {
   case class MUL(op: RMArg, size: OpdSize = QuadWord) extends X64Instr(size, op)
   case class DIV(op: RMArg, size: OpdSize = QuadWord) extends X64Instr(size, op)
 
-  case class SHL(count: Const, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, count, dst)
-  case class SHR(count: Const, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, count, dst)
-  case class SAR(count: Const, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, count, dst)
+  // NOTE: count may ONLY be a const or the register CL (lowest 8 bits of RCX)
+  case class SHL(count: ISArg, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, count, dst)
+  case class SHR(count: ISArg, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, count, dst)
+  case class SAR(count: ISArg, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, count, dst)
 
   case class CALL(target: Callable) extends X64Instr(target)
   case class RET() extends X64Instr()

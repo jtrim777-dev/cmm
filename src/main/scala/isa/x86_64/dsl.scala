@@ -14,14 +14,16 @@ object dsl extends ISADSL[ArchX64] {
     case VirtualRegister.StackOffset(bytes) => Offset(RBP, Constant(bytes))
   }
 
-  override def mov(src: Value, dst: ISArg): Instrs = src._1 match {
-    case r:Register => MOV(r, dst, src._2.operandSize).wrap
-    case o:Offset => dst match {
-      case r: Register => MOV(o, r, src._2.operandSize).wrap
-      case o2: Offset => ISeq(
-        MOV(o, MovInterm, src._2.operandSize),
-        MOV(MovInterm, o2, src._2.operandSize)
-      )
+  override def mov(src: Value, dst: ISArg): Instrs = if (src._1 == dst) Instrs.empty else {
+    src._1 match {
+      case r: Register => MOV(r, dst, src._2.operandSize).wrap
+      case o: Offset => dst match {
+        case r: Register => MOV(o, r, src._2.operandSize).wrap
+        case o2: Offset => ISeq(
+          MOV(o, MovInterm, src._2.operandSize),
+          MOV(MovInterm, o2, src._2.operandSize)
+        )
+      }
     }
   }
 
@@ -30,23 +32,25 @@ object dsl extends ISADSL[ArchX64] {
   override def virtMov(src: Value, dst: VirtualRegister): Instrs = mov(src, dst.resolve)
 
   override def typedMov(from: Value, to: Value, sign: Boolean): Instrs = {
-    if (from._2.superName != to._2.superName || from._2.bytes > to._2.bytes) {
-      throw new IllegalArgumentException(s"Cannot mov ${from._2} to ${to._2}")
-    }
+    if (from == to) Instrs.empty else {
+      if (from._2.superName != to._2.superName || from._2.bytes > to._2.bytes) {
+        throw new IllegalArgumentException(s"Cannot mov ${from._2} to ${to._2}")
+      }
 
-    val mover: (ISArg, ISArg, OpdSize, OpdSize) => X64Instr = if (sign) MOVS.apply else MOVZ.apply
+      val mover: (ISArg, ISArg, OpdSize, OpdSize) => X64Instr = if (sign) MOVS.apply else MOVZ.apply
 
-    if (from._2 == to._2) {
-      mov(from, to._1)
-    } else {
-      val ss = from._2.operandSize
-      val ds = to._2.operandSize
+      if (from._2 == to._2) {
+        mov(from, to._1)
+      } else {
+        val ss = from._2.operandSize
+        val ds = to._2.operandSize
 
-      from._1 match {
-        case r:Register => mover(r, to._1, ss, ds).wrap
-        case o:Offset => to._1 match {
-          case r: Register => mover(o, r, ss, ds).wrap
-          case o2: Offset => mover(o, MovInterm, ss, ds) + MOV(MovInterm, o2, size = ds)
+        from._1 match {
+          case r: Register => mover(r, to._1, ss, ds).wrap
+          case o: Offset => to._1 match {
+            case r: Register => mover(o, r, ss, ds).wrap
+            case o2: Offset => mover(o, MovInterm, ss, ds) + MOV(MovInterm, o2, size = ds)
+          }
         }
       }
     }

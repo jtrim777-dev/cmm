@@ -8,7 +8,7 @@ import isa.x86_64.X64Instr._
 import isa.x86_64.dsl._
 import isa.x86_64.registers._
 import isa.x86_64.{ArchX64, InstrCond}
-import isa.{ISeq, Label}
+import isa.{ISArg, ISeq, Label}
 import lang.ProgramSegment.ProcDefn
 import lang._
 
@@ -59,59 +59,24 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
     case Expression.Operation(op, args) => compileOperation(op, args, ctx)
   }
 
-  def argFromImmExpr(expr: Expression, ctx: CompilationContext[ArchX64]): Value = expr match {
-    case Expression.CInt(value) => (value.const, DataType.Word8)
-    case Expression.CFlot(_) => throw new IllegalArgumentException("Error compiling float literal: Floats are not yet supported")
+  def argFromImmExpr(expr: Expression, ctx: CompilationContext[ArchX64]): IO[Value] = expr match {
+    case Expression.CInt(value) => pure((value.const, DataType.Word8))
+    case Expression.CFlot(_) => raise("argument", "Error compiling float literal: Floats are not yet supported")
     case Expression.ID(name) => ctx.scope(name) match {
-      case CompilationContext.ProcParam(_, index, kind) => (fxArg(index).resolve, kind)
-      case CompilationContext.LocalVar(kind, pos) => (pos.resolve, kind)
-      case CompilationContext.Procedure(name) => (LabelRef.proc(name), DataType.Word8)
-      case CompilationContext.DataLabel(_, _, ref) => (ref, DataType.Word8)
+      case CompilationContext.ProcParam(_, index, kind) => pure((fxArg(index).resolve, kind))
+      case CompilationContext.LocalVar(kind, pos) => pure((pos.resolve, kind))
+      case CompilationContext.Procedure(name) => pure((LabelRef.proc(name), DataType.Word8))
+      case CompilationContext.DataLabel(_, _, ref) => pure((ref, DataType.Word8))
     }
-    case _ => throw new IllegalArgumentException(s"Error compiling expression: $expr is not immediate")
+    case _ => raise("argument", s"Error compiling expression: $expr is not immediate")
   }
 
-  def compileOperation(op: Primitive, args: Seq[Expression], ctx: Context): IO[Instrs] = {
-    /*
-          val (lhv, lt) = helpers.argFromImmediate(lhs, ctx)
-          val (rhv, rt) = helpers.argFromImmediate(rhs, ctx)
-          val selTyp = lt.bounding(rt).get
-
-          val normPrepare = helpers.typedMov((lhv, lt), (target, selTyp), !op.unsigned) ++
-            helpers.typedMov((rhv, rt), (MovInterm, selTyp), !op.unsigned)
-
-          val toRep = (Set(RAX, RDX) - target).toSeq
-          val extPrepare = toRep.map(PUSH.apply(_)) ++
-            helpers.typedMov((lhv, lt), (RAX, selTyp), !op.unsigned) ++
-            (if (rhv.isInstanceOf[Offset]) {
-              helpers.typedMov((rhv, rt), (MovInterm, selTyp), !op.unsigned)
-            } else Seq.empty)
-          val extRestore = toRep.map(POP.apply(_))
-          val extRight: ISArg.RMArg = rhv match {
-            case ra:ISArg.RMArg => ra
-            case _ => MovInterm
-          }
-
-          op match {
-            case _:ArithOp.Add => normPrepare :+ ADD(target, MovInterm)
-            case _:ArithOp.Sub => normPrepare :+ SUB(target, MovInterm)
-            case m:ArithOp.Mul if m.unsigned =>
-              val i1 = MUL(extRight, selTyp.asSize)
-
-              ???
-            case _:ArithOp.Mul => ???
-            case d:ArithOp.Div if d.unsigned => ???
-            case _:ArithOp.Div => ???
-            case m:ArithOp.Mod if m.unsigned => ???
-            case _:ArithOp.Mod => ???
-            case ArithOp.And => ???
-            case ArithOp.Or => ???
-            case ArithOp.Xor => ???
-            case ArithOp.ShiftL => ???
-            case ArithOp.ShiftR(signed) => ???
-          }
-          */
-    ???
+  def compileOperation(op: Primitive, args: Seq[Expression], target: Register, ctx: Context): IO[Instrs] = {
+    for {
+      values <- args.map(argFromImmExpr(_, ctx)).sequence
+      comp <- operations.getCompiler(op)
+      compOp <- comp((values, ctx, target))
+    } yield compOp
   }
 
   def getType(expr: Expression, ctx: Context): IO[DataType] = expr match {
@@ -223,7 +188,7 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
 
   def compileStatement(stmt: Statement, ctx: Context, bid: String): IO[(Instrs, Context)] = stmt match {
     case Statement.Skip => (NOP.wrap, ctx).pure[IO]
-    case Statement.VarDecl(kind, names@_*) =>
+    case Statement.VarDecl(kind, names) =>
       IO(names.foldLeft(ctx) { (c, n) => c.addLocal(n, kind, 8) }).map { nc =>
         (ISeq.empty, nc)
       }
@@ -275,7 +240,7 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
       } yield (proc, ctx)
     case Statement.LocalLabel(name) => pure((ISeq.empty[ArchX64].label(Label.localMark(bid, name)), ctx))
     case Statement.Goto(label) => (JMP(LabelRef.localMark(bid, label)).wrap, ctx).pure[IO]
-    case Statement.Jump(proc, args@_*) =>
+    case Statement.Jump(proc, args) =>
       for {
         cjs <- compileJumpShuffle(args, ctx)
         (prelude, clearup, modCtx) = cjs
@@ -283,7 +248,7 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
         (tget, target) = cpi
         proci = (prelude ++ tget ++ clearup) + JMP(target)
       } yield (proci, ctx)
-    case Statement.Call(results, proc, args@_*) =>
+    case Statement.Call(results, proc, args) =>
       for {
         resultPositions <- results.map { s =>
           ctx.scope.get(s) match {
@@ -324,7 +289,7 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
 
         prog = saveArgs ++ setArgs ++ tget ++ callIt ++ restore ++ copyResults
       } yield (prog, ctx)
-    case Statement.Return(results@_*) =>
+    case Statement.Return(results) =>
       results.zip(Seq(RAX, RBX)).map { case (expr, dst) =>
         compileExpression(expr, ctx, dst)
       }.sequence.map(ISeq.flatten).map((_, ctx))
