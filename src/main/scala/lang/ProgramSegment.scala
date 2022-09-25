@@ -1,18 +1,22 @@
-package dev.jtrim777.cmm.lang
+package dev.jtrim777.cmm
+package lang
+
+import collection.immutable.Seq
 
 trait ProgramSegment {
   def toCode: String
 }
 
 object ProgramSegment {
-  case class SymbolImport(name: String) extends ProgramSegment {
+  trait SymbolPort extends ProgramSegment
+  case class SymbolImport(name: String) extends SymbolPort {
     override def toCode: String = s"import $name;"
   }
-  case class SymbolExport(name: String) extends ProgramSegment {
+  case class SymbolExport(name: String) extends SymbolPort {
     override def toCode: String = s"export $name;"
   }
 
-  case class DataBlock(decls: DataDecl*) extends ProgramSegment {
+  case class DataBlock(decls: Seq[DataDecl]) extends ProgramSegment {
     override def toCode: String = {
       val declList: String = decls.map(_.toCode).map(s => "    "+s).mkString("\n")
 

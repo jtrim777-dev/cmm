@@ -1,4 +1,7 @@
-package dev.jtrim777.cmm.lang
+package dev.jtrim777.cmm
+package lang
+
+import collection.immutable.Seq
 
 case class DataDecl(name: String, kind: DataType, count: Int, value: Seq[Expression]) {
   def toCode: String = {

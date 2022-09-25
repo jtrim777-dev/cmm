@@ -1,5 +1,7 @@
 package dev.jtrim777.cmm
 
+import collection.immutable.Seq
+
 package object util {
   implicit class SEOps[L, R](seq: Seq[Either[L, R]]) {
     def sequence: Either[L, Seq[R]] = {

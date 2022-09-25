@@ -2,6 +2,7 @@ package dev.jtrim777.cmm
 package lang
 
 import java.lang.{Long => JLong}
+import collection.immutable.Seq
 
 sealed trait Expression {
   def toCode: String
@@ -48,7 +49,7 @@ object Expression {
     }
   }
 
-  case class PrimOp(op: Primitive, args: Seq[Expression]) extends Expression {
+  case class Operation(op: Primitive, args: Seq[Expression]) extends Expression {
     override def toCode: String = s"${op.toCode}(${args.map(_.toCode).mkString(", ")})"
   }
 

@@ -3,6 +3,7 @@ package parse
 
 import org.parboiled2._
 import lang.{DataType, Primitive, Expression => exp, Statement => stmt}
+import collection.immutable.Seq
 
 class ParserImpl(val input: ParserInput) extends Parser {
   import ParserImpl._
@@ -98,11 +99,11 @@ class ParserImpl(val input: ParserInput) extends Parser {
   }
 
   def PrimApp: ExprRule = rule {
-    IDNoRet ~ LP ~ Expr.* ~ RP ~> {(f:exp.ID, args: Seq[exp]) => exp.PrimOp(Primitive.parse(f.name), args)}
+    IDNoRet ~ LP ~ Expr.* ~ RP ~> {(f:exp.ID, args: Seq[exp]) => exp.Operation(Primitive.parse(f.name), args)}
   }
 
   def Operation: ExprRule = rule {
-    Expr ~ Operator ~ Expr ~> {(lhs:exp, op:Primitive, rhs:exp) => exp.PrimOp(op, Seq(lhs, rhs))}
+    Expr ~ Operator ~ Expr ~> {(lhs:exp, op:Primitive, rhs:exp) => exp.Operation(op, Seq(lhs, rhs))}
   }
 
   def Expr: ExprRule = rule {
