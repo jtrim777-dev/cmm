@@ -11,6 +11,11 @@ options:
       url: https://packages.confluent.io/maven/
 
 dependencies:
+  com.lihaoyi:
+    pprint:
+      lang: scala
+      version: "0.7.0"
+
   org.parboiled:
     parboiled:
       lang: scala

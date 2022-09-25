@@ -1,0 +1,14 @@
+import com.cmm.stdlib;
+import foobar;
+import wild$id;
+
+export foo;
+export baz;
+
+data {
+    blob: word8;
+    blobs: word8[10];
+
+    str: word1 {104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100};
+    padstr: word1[10] {104, 101, 108, 108, 111};
+}

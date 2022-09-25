@@ -135,7 +135,7 @@ object Validate extends Phase.Group[IO, Program, Program]("validate") {
 
   def checkScope(stmt: Statement, datum: Set[String],
                  procs: Set[String], labels: Set[String]): IO[Set[String]] = stmt match {
-    case Statement.VarDecl(_, names@_*) =>
+    case Statement.VarDecl(_, names) =>
       if (names.exists(s => datum.contains(s) || procs.contains(s) || labels.contains(s))) {
         raise("Declared variable conflicts with extant name")
       } else pure(labels ++ names.toSet)
@@ -157,17 +157,17 @@ object Validate extends Phase.Group[IO, Program, Program]("validate") {
       pure(labels + name)
     case Statement.Goto(label) =>
       if (labels.contains(label)) pure(labels) else raise(s"Cannot goto non-existent label $label")
-    case Statement.Jump(proc, args@_*) =>
+    case Statement.Jump(proc, args) =>
       checkScope(proc, datum, procs, labels)
         .flatMap(_ => args.map(checkScope(_, datum, procs, labels)).sequence.map(_ => labels))
-    case Statement.Call(results, proc, args@_*) =>
+    case Statement.Call(results, proc, args) =>
       if (results.exists(s => !labels.contains(s))) {
         raise("Attempting to assign call result to non-existing or invalid variable")
       } else {
         checkScope(proc, datum, procs, labels)
           .flatMap(_ => args.map(checkScope(_, datum, procs, labels)).sequence.map(_ => labels))
       }
-    case Statement.Return(results@_*) =>
+    case Statement.Return(results) =>
       results.map(checkScope(_, datum, procs, labels)).sequence.map(_ => labels)
     case Statement.Block(stmts) =>
       val bc: IO[Set[String]] = pure(labels)
@@ -197,7 +197,7 @@ object Validate extends Phase.Group[IO, Program, Program]("validate") {
   
   def validUsages(statement: Statement): IO[Unit] = statement match {
     case Statement.Skip => success
-    case Statement.VarDecl(_, names@_*) => if (names.isEmpty) {
+    case Statement.VarDecl(_, names) => if (names.isEmpty) {
       raise("Variable declarations must declare at least one var")
     } else success
     case Statement.Assn(_, _) => success
@@ -210,7 +210,7 @@ object Validate extends Phase.Group[IO, Program, Program]("validate") {
     case Statement.Call(results, _, _) => if (results.length > 2) {
       raise("Procedures returning more than 2 values are not supported")
     } else success
-    case Statement.Return(results@_*) => if (results.length > 2) {
+    case Statement.Return(results) => if (results.length > 2) {
       raise("Procedures returning more than 2 values are not supported")
     } else success
     case Statement.Block(stmts) => stmts.map(validUsages).sequence.map(_ => ())

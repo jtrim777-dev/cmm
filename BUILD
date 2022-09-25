@@ -25,7 +25,7 @@ scala_library(
 
 scala_library(
     name = "cmm-compile-lib",
-    srcs = glob(["src/main/scala/compile/*.scala"]),
+    srcs = glob(["src/main/scala/compile/*.scala", "src/main/scala/compile/common/*.scala"]),
     deps = [
         ":cmm-lang",
         ":cmm-isa",
@@ -37,17 +37,6 @@ scala_library(
         ":cmm-isa",
         ":cmm-core",
         "@third_party//3rdparty/jvm/org/typelevel:cats_effect",
-    ],
-)
-
-scala_library(
-    name = "cmm-compile-common",
-    srcs = glob(["src/main/scala/compile/common/*.scala"]),
-    deps = [
-        ":cmm-compile-lib",
-    ],
-    exports = [
-        ":cmm-compile-lib",
     ],
 )
 
@@ -97,14 +86,12 @@ scala_library(
       ":cmm-lang",
       ":cmm-isa",
       ":cmm-compile-lib",
-      ":cmm-compile-common",
   ],
   exports = [
       ":cmm-core",
       ":cmm-lang",
       ":cmm-isa",
       ":cmm-compile-lib",
-      ":cmm-compile-common",
   ],
 )
 
@@ -118,4 +105,32 @@ scala_library(
         ":cmm-isa-x64",
         ":cmm-compile-x64",
     ],
+)
+
+scala_library(
+    name = "test-sources",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    resources = glob(["src/test/resources/*"]),
+    deps = [
+        ":cmm-lib",
+        ":cmm-parse",
+        ":cmm-x64",
+        "@third_party//3rdparty/jvm/com/lihaoyi:pprint",
+        "@third_party//3rdparty/jvm/org/typelevel:cats_effect",
+        "@third_party//3rdparty/jvm/org/parboiled:parboiled",
+    ],
+    exports = [
+        ":cmm-lib",
+        ":cmm-parse",
+        ":cmm-x64",
+        "@third_party//3rdparty/jvm/com/lihaoyi:pprint",
+        "@third_party//3rdparty/jvm/org/typelevel:cats_effect",
+        "@third_party//3rdparty/jvm/org/parboiled:parboiled",
+    ]
+)
+
+scala_binary(
+    name = "test-parser",
+    main_class = "dev.jtrim777.cmm.TestParser",
+    deps = [":test-sources"]
 )

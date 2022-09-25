@@ -4,8 +4,11 @@ import cats.data.Kleisli
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.effect.std.Console
 
 sealed abstract class Phase[F[_] : Sync, I, O](val name: String) {
+  def run(input: I): F[O] = execute(input, 0, 0)
+
   protected def execute(input: I, depth: Int, order: Int): F[O]
 
   def andThen[OO](next: Phase[F, O, OO]): Phase[F, I, OO] = Phase.Chain("", this, next)
@@ -13,7 +16,7 @@ sealed abstract class Phase[F[_] : Sync, I, O](val name: String) {
   def *>[OO](next: Phase[F, O, OO]): Phase[F, I, OO] = this.andThen(next)
 
   protected def logMethod(depth: Int, order: Int): Phase.Printer[F] = {
-    ???
+    Kleisli { (m:String) => implicitly[Sync[F]].delay(println(m)) }
   }
 }
 

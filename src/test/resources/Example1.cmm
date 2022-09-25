@@ -1,0 +1,8 @@
+import com.cmm.stdlib;
+import foobar;
+import wild$id;
+
+export foo;
+export baz;
+
+data { }

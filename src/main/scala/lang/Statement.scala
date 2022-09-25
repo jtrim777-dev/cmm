@@ -12,7 +12,7 @@ object Statement {
     override def toCode: String = "skip;"
   }
 
-  case class VarDecl(kind: DataType, names: String*) extends Statement {
+  case class VarDecl(kind: DataType, names: Seq[String]) extends Statement {
     override def toCode: String = kind.toCode + " " + names.mkString(", ") + ";"
   }
   case class Assn(name: String, value: Expression) extends Statement {
@@ -43,14 +43,14 @@ object Statement {
     override def toCode: String = s"goto $label;"
   }
 
-  case class Jump(proc: Expression, args: Expression*) extends Statement {
+  case class Jump(proc: Expression, args: Seq[Expression]) extends Statement {
     override def toCode: String = if (args.nonEmpty) {
       s"jump ${proc.toCode}(${args.map(_.toCode).mkString(", ")});"
     } else {
       s"jump ${proc.toCode};"
     }
   }
-  case class Call(results: Seq[String], proc: Expression, args: Expression*) extends Statement {
+  case class Call(results: Seq[String], proc: Expression, args: Seq[Expression]) extends Statement {
     override def toCode: String = if (results.isEmpty) {
       s"${proc.toCode}(${args.map(_.toCode).mkString(", ")});"
     } else {
@@ -58,7 +58,7 @@ object Statement {
     }
   }
 
-  case class Return(results: Expression*) extends Statement {
+  case class Return(results: Seq[Expression]) extends Statement {
     override def toCode: String = if (results.nonEmpty) {
       s"return (${results.map(_.toCode).mkString(", ")});"
     } else "return;"

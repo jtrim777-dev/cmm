@@ -157,21 +157,21 @@ object Prepare extends Phase.Group[IO, Program, Program]("prepare") {
         out = IfStmt(ncond._2, nexec, nelse)
       } yield if (ncond._1.isEmpty) out else Block(ncond._1 :+ out)
     }
-    case Jump(proc, args@_*) =>
+    case Jump(proc, args) =>
       normForCall(proc, args).map { case (work, np, nas) =>
         if (work.isEmpty) stmt else {
-          Block(work :+ Jump(np, nas: _*))
+          Block(work :+ Jump(np, nas))
         }
       }
-    case Call(results, proc, args@_*) =>
+    case Call(results, proc, args) =>
       normForCall(proc, args).map { case (work, np, nas) =>
         if (work.isEmpty) stmt else {
-          Block(work :+ Call(results, np, nas: _*))
+          Block(work :+ Call(results, np, nas))
         }
       }
-    case Return(results@_*) => if (results.forall(isImmediate)) pure(stmt) else {
+    case Return(results) => if (results.forall(isImmediate)) pure(stmt) else {
       normMany(results, "rez").map { case (argWork, nrez) =>
-        Block(argWork :+ Return(nrez: _*))
+        Block(argWork :+ Return(nrez))
       }
     }
     case Block(stmts) => stmts.map(normalize).sequence.map(Block.apply)

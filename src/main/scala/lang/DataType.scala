@@ -39,13 +39,13 @@ object DataType {
   case object Flot4 extends Flot(4)
   case object Flot8 extends Flot(8)
 
-  def fromName(name: String): DataType = name match {
-    case "word1" => Word1
-    case "word2" => Word2
-    case "word4" => Word4
-    case "word8" => Word8
-    case "float4" => Flot4
-    case "float8" => Flot8
-    case _ => throw new IllegalArgumentException(s"No such DataType $name")
+  def fromName(name: String): Option[DataType] = name match {
+    case "word1" => Some(Word1)
+    case "word2" => Some(Word2)
+    case "word4" => Some(Word4)
+    case "word8" => Some(Word8)
+    case "float4" => Some(Flot4)
+    case "float8" => Some(Flot8)
+    case _ => None
   }
 }

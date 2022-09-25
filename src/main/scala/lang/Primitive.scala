@@ -30,7 +30,7 @@ object Primitive {
       Left(s"Primitive '$name' only accepts a $tnm-type argument")
   })
   def comparator[D <: DataType : ClassTag](name: String): Primitive = Primitive(name, 2, {
-    case (a:D) :: (b:D) :: Nil if a == b => Right(DataType.fromName("word" + a.bytes))
+    case (a:D) :: (b:D) :: Nil if a == b => Right(DataType.fromName("word" + a.bytes).get)
     case (a:D) :: (b:D) :: Nil if a != b => Left(s"Inputs to $name must be of the same size")
     case _ =>
       val tnm = implicitly[ClassTag[D]].runtimeClass.getSimpleName.stripSuffix("$").toLowerCase
@@ -149,39 +149,39 @@ object Primitive {
     FEq, FNEq, FLT, FLTE, FGT, FGTE
   )
 
-  def parse(raw: String): Primitive = {
+  def parse(raw: String): Option[Primitive] = {
     All.find(_.name == raw)
-      .getOrElse(throw new Exception(s"No such primitive $raw"))
   }
 
-  def parseOperator(raw: String): Primitive = raw match {
-    case "+" => Add
-    case "-" => Sub
-    case "*" => Mul
-    case "/" => Div
-    case "%" => Mod
-    case "~+" => FAdd
-    case "~-" => FSub
-    case "~*" => FMul
-    case "~/" => FDiv
-    case "&" => And
-    case "|" => Or
-    case "^" => Xor
-    case "<<" => ShiftL
-    case ">>" => ShiftR
-    case ">>>" => ShiftRA
-    case "==" => Eq
-    case "!=" => NEq
-    case "<" => LT
-    case "<=" => LTE
-    case ">" => GT
-    case ">=" => GTE
-    case "~=" => FEq
-    case "!~" => FNEq
-    case "~<" => FLT
-    case "~<=" => FLTE
-    case "~>" => FGT
-    case "~>=" => FGTE
-    case _ => throw new Exception(s"No such operator '$raw'")
-  }
+  val OpMatching: Map[String, Primitive] = Map (
+    "+" -> Add,
+    "-" -> Sub,
+    "*" -> Mul,
+    "/" -> Div,
+    "%" -> Mod,
+    "~+" -> FAdd,
+    "~-" -> FSub,
+    "~*" -> FMul,
+    "~/" -> FDiv,
+    "&" -> And,
+    "|" -> Or,
+    "^" -> Xor,
+    "<<" -> ShiftL,
+    ">>" -> ShiftR,
+    ">>>" -> ShiftRA,
+    "==" -> Eq,
+    "!=" -> NEq,
+    "<" -> LT,
+    "<=" -> LTE,
+    ">" -> GT,
+    ">=" -> GTE,
+    "~=" -> FEq,
+    "!~" -> FNEq,
+    "~<" -> FLT,
+    "~<=" -> FLTE,
+    "~>" -> FGT,
+    "~>=" -> FGTE,
+  )
+
+  def parseOperator(raw: String): Option[Primitive] = OpMatching.get(raw)
 }
