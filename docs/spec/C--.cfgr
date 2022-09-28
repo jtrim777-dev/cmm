@@ -1,0 +1,167 @@
+module Cmm;
+
+term
+  : ';'
+  ;
+
+ID
+  : ( 'a'-'z' | 'A'-'Z' | '_' ) {0> 'a'-'z' | 'A'-'Z' | '0'-'9' | '_' }
+  ;
+
+dec
+  : [ ('+' | '-') ] {1> '0'-'9' }
+  ;
+
+hex
+  : [ ('+' | '-') ] '0x' {1> '0'-'9' | 'a'-'f' | 'A'-'F' }
+  ;
+
+int
+  : dec | hex
+  ;
+
+type_name
+  : 'word1' | 'word2' | 'word4' | 'word8'
+  | 'float4' | 'float8'
+  ;
+
+prim_op
+  : 'abs' | 'neg' | 'sign'
+  | 'word1' | 'word2' | 'word4' | 'word8'
+  ;
+
+operator
+  : '~-' | '~<' | '<' | '|' | '-' | '>>>' | '~/' | '~+' | '+' | '!=' | '^'
+  | '~<=' | '*' | '<=' | '%' | '~>=' | '&' | '~*' | '<<' | '~>' | '>='
+  | '>>' | '~=' | '!~' | '==' | '/' | '>'
+  ;
+
+read
+  : type_name '[' expr ']'
+  ;
+
+primitive
+  : prim_op '(' {0> expr $ ',' } ')'
+  ;
+
+operation
+  : texpr operator expr
+  ;
+
+expr
+  : read
+  | primitive
+  | operation
+  | id
+  | int
+  | '(' expr ')'
+  ;
+
+texpr
+  : id
+  | int
+  | '(' expr ')'
+  ;
+
+parameter
+  : type_name ID
+  ;
+
+skip
+  : 'skip' term
+  ;
+
+goto
+  : 'goto' ID term
+  ;
+
+jump
+  : 'jump' texpr [ '(' {0> expr $ ',' } ')' ] term
+  ;
+
+return
+  : 'return' [ expr [ ',' expr] ] term
+  ;
+
+ifstmt
+  : 'if' '(' expr ')' block [ 'else' block ]
+  ;
+
+assignment
+  : ID '=' expr term
+  ;
+
+call
+  : [ ID [ ',' ID] '=' ] ID '(' {0> expr $ ',' } ')' term
+  ;
+
+write
+  : type_name '[' expr ']' '=' expr term
+  ;
+
+var_decl
+  : type_name {1> ID $ ',' } term
+  ;
+
+label
+  : ID ':'
+  ;
+
+block
+  : '{' {0> statement } '}'
+  ;
+
+statement
+  : block
+  | skip
+  | goto
+  | jump
+  | return
+  | ifstmt
+  | assignment
+  | call
+  | write
+  | var_decl
+  | label
+  ;
+
+directive
+  : '#' ID ['(' { expr $ ',' }  ')']
+  ;
+
+data_block
+  : 'data' '{' {0> data_decl } '}'
+  ;
+
+proc_defn
+  : ID '(' {0> parameter $ ',' } ')' block
+  ;
+
+data_decl
+  : ID ':' type_name [ '[' int ']' ] [ '{' { expr $ ',' } '}' ] term
+  ;
+
+simport: 'import' ID term ;
+
+sexport
+  : 'export' ID term
+  ;
+
+Program
+  : simport
+  | sexport
+  | directive
+  | data_block
+  | proc_defn
+  | raw_proc
+  | comment
+  | block_comment
+  ;
+
+#comment
+#  : '//' /[^\n]*/ '\n'
+#  ;
+
+#block_comment
+#  : '/*' * '*/'
+#  ;
