@@ -190,7 +190,7 @@ object Validate extends Phase.Group[IO, Program, Program]("validate") {
   }
 
   def ensureSize(decl: DataDecl): IO[Unit] = {
-    if (decl.count == 0 || decl.count < decl.value.length) success else {
+    if (decl.count == 1 || decl.count >= decl.value.length) success else {
       raise(s"Initialization size cannot be greater than allocation size (for datum ${decl.name})")
     }
   }

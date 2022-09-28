@@ -1,0 +1,20 @@
+import com.cmm.stdlib;
+import foobar;
+import wild$id;
+
+data {
+    blob: word8;
+    blobs: word8[10];
+    str: word1[16];
+    padstr: word1[10];
+}
+
+foo(word1 byte, word8 verd) {
+    word2 varA, varB, varC, varD;
+
+    varA = 17 + ((3 * word2[varC - 0x11]) + varB);
+}
+
+baz(word2 sam) {
+    return sam, 13;
+}

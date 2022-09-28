@@ -15,7 +15,7 @@ import dev.jtrim777.cmm.Phase
 
 object Prepare extends Phase.Group[IO, Program, Program]("prepare") {
   override def body: Phase[IO, Program, Program] = {
-    extractDataInit *> normalizeProcedures
+    /*extractDataInit *>*/ normalizeProcedures
   }
 
   // MARK: Begin sub-phases
@@ -26,7 +26,7 @@ object Prepare extends Phase.Group[IO, Program, Program]("prepare") {
     val computeStmts = dbs.map(generateInit).sequence.map(_.flatten)
 
     computeStmts.map { stmts =>
-      val dataInitProc = ProcDefn("cmm$initData", Seq.empty, stmts.asInstanceOf[Block])
+      val dataInitProc = ProcDefn("cmm$initData", Seq.empty, Block(stmts))
 
       val ndecls = dbs.map { decl =>
         DataDecl(decl.name, decl.kind, decl.realCount, Seq.empty)
@@ -86,44 +86,48 @@ object Prepare extends Phase.Group[IO, Program, Program]("prepare") {
     case o => isImmediate(o)
   }
 
+  def normLabel(header: String, index: Int): String = s"cmm$$norm$$$header$$$index"
+
   /**
    * Converts a possibly non-normal expression to a series of operations and the value to replace the expression with.
    * If the expression is already normal, the output will have no statements
    */
-  def normalize(expr: Expression, l: String): IO[(Seq[Statement], Expression)] = expr match {
+  def normalize(expr: Expression, l: String, decl:Seq[String]=Seq.empty): IO[(Seq[Statement], Expression, Seq[String])] = expr match {
     case Read(kind, pos, align) =>
-      normalize(pos, l + "pos").map { case (pw, np) =>
-        (pw :+ Assn(l, Read(kind, np, align)), ID(l))
+      val id = normLabel(l, decl.length)
+      normalize(pos, l, decl :+ id).map { case (pw, np, ndecl) =>
+        (pw :+ Assn(id, Read(kind, np, align)), ID(id), ndecl)
       }
     case Operation(op, args) =>
-      normMany(args, l + "pg").map { case (aw, nas) =>
-        (aw :+ Assn(l, Operation(op, nas)), ID(l))
+      val id = normLabel(l, decl.length)
+      normMany(args, l, decl :+ id).map { case (aw, nas, ndecl) =>
+        (aw :+ Assn(id, Operation(op, nas)), ID(id), ndecl)
       }
-    case _ => pure((Seq.empty, expr))
+    case _ => pure((Seq.empty, expr, decl))
   }
 
-  def normMany(exprs: Seq[Expression], l: String): IO[(Seq[Statement], Seq[Expression])] = {
-    val base = IO.pure((Seq.empty[Statement], Seq.empty[Expression]))
-    exprs.zipWithIndex.foldLeft(base) { case (acc, (ag, i)) =>
-      acc.flatMap { case (works, ngs) =>
+  def normMany(exprs: Seq[Expression], l: String, decl:Seq[String]=Seq.empty): IO[(Seq[Statement], Seq[Expression], Seq[String])] = {
+    val base = IO.pure((Seq.empty[Statement], Seq.empty[Expression], decl))
+    exprs.foldLeft(base) { case (acc, ag) =>
+      acc.flatMap { case (works, ngs, ndecl) =>
         if (isImmediate(ag)) {
-          pure((works, ngs :+ ag))
+          pure((works, ngs :+ ag, ndecl))
         } else {
-          normalize(ag, "cmm$norm$" + l + i + "$").map { case (work, na) =>
-            (works ++ work, ngs :+ na)
+          normalize(ag, l, ndecl).map { case (work, na, nndecl) =>
+            (works ++ work, ngs :+ na, nndecl)
           }
         }
       }
     }
   }
 
-  def normForCall(proc: Expression, args: Seq[Expression]): IO[(Seq[Statement], Expression, Seq[Expression])] = {
+  def normForCall(proc: Expression, args: Seq[Expression]): IO[(Seq[Statement], Expression, Seq[Expression], Seq[String])] = {
     if(isImmediate(proc) && args.forall(isImmediate)) {
-      pure((Seq.empty, proc, args))
+      pure((Seq.empty, proc, args, Seq.empty))
     } else {
-      normalize(proc, "cmm$norm$tgt").flatMap { case (procWork, np) =>
-        normMany(args, "arg").map { case (argWork, nargs) =>
-          (procWork ++ argWork, np, nargs)
+      normalize(proc, "call$tgt").flatMap { case (procWork, np, oc) =>
+        normMany(args, "call$arg").map { case (argWork, nargs, ic) =>
+          (procWork ++ argWork, np, nargs, oc ++ ic)
         }
       }
     }
@@ -131,7 +135,8 @@ object Prepare extends Phase.Group[IO, Program, Program]("prepare") {
 
   def normalize(stmt: Statement): IO[Statement] = stmt match {
     case Assn(name, value) => if (isNormal(value)) pure(stmt) else {
-      normalize(value, s"cmm$$norm$$$name$$").map { case (work, nn) =>
+      normalize(value, name).map { case (work, nn, decl) =>
+        val dec = VarDecl(???, decl) // TODO: How to get the type???
         val sts = work map {
           case Assn(n, e) if n == nn.toCode => Assn(name, e)
           case o => o
@@ -141,13 +146,13 @@ object Prepare extends Phase.Group[IO, Program, Program]("prepare") {
     }
     case Write(kind, pos, value, align) => if (isMemable(pos) && isNormal(value)) pure(stmt) else {
       for {
-        np <- normalize(pos, "cmm$norm$pos$")
-        nv <- normalize(value, "cmm$norm$value$")
+        np <- normalize(pos, "write$pos")
+        nv <- normalize(value, "write$value")
       } yield Block(np._1 ++ nv._1 :+ Write(kind, np._2, nv._2, align))
     }
     case IfStmt(cond, exec, elseExec) => {
       for {
-        ncond <- if (isNormal(cond)) pure((Seq.empty, cond)) else normalize(cond, "cmm$norm$cond")
+        ncond <- if (isNormal(cond)) pure((Seq.empty, cond, 0)) else normalize(cond, "if$cond")
         nexecS <- normalize(exec)
         nexec = nexecS.asInstanceOf[Block]
         nelse <- elseExec match {

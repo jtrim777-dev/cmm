@@ -1,0 +1,51 @@
+import com.cmm.stdlib;
+import foobar;
+import wild$id;
+
+export foo;
+export baz;
+
+data {
+    blob: word8;
+    blobs: word8[10];
+    
+    str: word1 {104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100};
+    padstr: word1[10] {104, 101, 108, 108, 111};
+}
+
+foo(word1 byte, word8 verd) {
+    skip;
+
+    word2 short, short2, weird$short, dot.short;
+
+    short = 5;
+    short = short2;
+    short = word2[verd];
+    short = word2{8}[verd];
+    short = foobar(9);
+    short = 5 + 6;
+    short = foo ~>= 2;
+    short = (4 + 3) + 6;
+
+    word2[verd] = weird$short;
+    word2[verd + 16] = weird$short;
+    word2[verd] = word2[dot.short];
+    word2{4}[verd] = weird$short;
+
+    label: short = 5 + 3;
+    label2:
+    skip;
+
+    goto label2;
+
+    jump wild$id;
+    jump 0xFFF;
+    jump (foo + 16);
+
+    jump foo(0xF, dot.short);
+    jump (foo + 392)(16 + 8, word2[foobar]);
+}
+
+baz(word2 sam) {
+    return sam, 13, 0x88;
+}

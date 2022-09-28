@@ -23,21 +23,26 @@ object X64Instr {
   case class NOT(target: Register, size: OpdSize = QuadWord) extends X64Instr(size, target)
 
   case class LEAQ(target: LabelRef, dst: Register) extends X64Instr(target, dst)
-  case class ADD(dst: ISArg, src: Register, size: OpdSize = QuadWord) extends X64Instr(size, dst, src)
-  case class SUB(dst: ISArg, src: Register, size: OpdSize = QuadWord) extends X64Instr(size, dst, src)
-  case class IMUL(dst: ISArg, src: Register, size: OpdSize = QuadWord) extends X64Instr(size, dst, src)
-  case class AND(dst: ISArg, src: Register, size: OpdSize = QuadWord) extends X64Instr(size, dst, src)
-  case class OR(dst: ISArg, src: Register, size: OpdSize = QuadWord) extends X64Instr(size, dst, src)
-  case class XOR(dst: ISArg, src: Register, size: OpdSize = QuadWord) extends X64Instr(size, dst, src)
+  case class ADD(src: ISArg, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, src, dst)
+  case class SUB(src: ISArg, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, src, dst)
+  case class IMUL(src: ISArg, dst: Register, size: OpdSize = OpdSize.DblWord) extends X64Instr(size, src, dst) // Size is at most DblWord
+  case class AND(src: ISArg, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, src, dst)
+  case class OR(src: ISArg, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, src, dst)
+  case class XOR(src: ISArg, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, src, dst)
 
-  case class MUL(op: RMArg, size: OpdSize = QuadWord) extends X64Instr(size, op)
-  case class DIV(op: RMArg, size: OpdSize = QuadWord) extends X64Instr(size, op)
+  case class IMULQ(srx: ISArg) extends X64Instr(srx) // [RDX:RAX] = RAX * srx; signed
+  case class MULQ(srx: ISArg) extends X64Instr(srx) // [RDX:RAX] = RAX * srx; unsigned
+  case class IDIVQ(srx: ISArg) extends X64Instr(srx) // INP = [RDX:RAX]; RAX = INP / srx; RDX = INP % srx; signed
+  case class DIVQ(srx: ISArg) extends X64Instr(srx) // INP = [RDX:RAX]; RAX = INP / srx; RDX = INP % srx; unsigned
+  case class CQTO() extends X64Instr() // [RDX:RAX] = SignExtend(RAX)
 
   // NOTE: count may ONLY be a const or the register CL (lowest 8 bits of RCX)
   case class SHL(count: ISArg, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, count, dst)
   case class SHR(count: ISArg, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, count, dst)
   case class SAR(count: ISArg, dst: Register, size: OpdSize = QuadWord) extends X64Instr(size, count, dst)
 
+  case class SET(cond: InstrCond, dst: Register) extends X64Instr(cond, dst)
+  
   case class CALL(target: Callable) extends X64Instr(target)
   case class RET() extends X64Instr()
 

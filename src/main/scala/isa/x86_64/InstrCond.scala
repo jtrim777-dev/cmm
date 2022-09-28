@@ -19,4 +19,6 @@ object InstrCond {
   case object NAbove extends InstrCond("na", Above)
   case object Below extends InstrCond("b", NBelow)
   case object NBelow extends InstrCond("nb", Below)
+  case object Neg extends InstrCond("s", NotNeg)
+  case object NotNeg extends InstrCond("ns", Neg)
 }

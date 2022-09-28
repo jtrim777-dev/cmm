@@ -8,7 +8,7 @@ import isa.x86_64.X64Instr._
 import isa.x86_64.dsl._
 import isa.x86_64.registers._
 import isa.x86_64.{ArchX64, InstrCond}
-import isa.{ISArg, ISeq, Label}
+import isa.{ISeq, Label}
 import lang.ProgramSegment.ProcDefn
 import lang._
 
@@ -56,7 +56,12 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
           rez + MOV(Offset(target, 0.const), target, kind.operandSize)
         }
       }
-    case Expression.Operation(op, args) => compileOperation(op, args, ctx)
+    case Expression.Operation(op, args) =>
+      for {
+        values <- args.map(argFromImmExpr(_, ctx)).sequence
+        comp <- operations.getCompiler(op)
+        compOp <- comp((values, target, ctx))
+      } yield compOp
   }
 
   def argFromImmExpr(expr: Expression, ctx: CompilationContext[ArchX64]): IO[Value] = expr match {
@@ -69,14 +74,6 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
       case CompilationContext.DataLabel(_, _, ref) => pure((ref, DataType.Word8))
     }
     case _ => raise("argument", s"Error compiling expression: $expr is not immediate")
-  }
-
-  def compileOperation(op: Primitive, args: Seq[Expression], target: Register, ctx: Context): IO[Instrs] = {
-    for {
-      values <- args.map(argFromImmExpr(_, ctx)).sequence
-      comp <- operations.getCompiler(op)
-      compOp <- comp((values, ctx, target))
-    } yield compOp
   }
 
   def getType(expr: Expression, ctx: Context): IO[DataType] = expr match {
@@ -109,9 +106,9 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
       case Primitive.GT => InstrCond.Gt
       case Primitive.UGTE => InstrCond.NBelow
       case Primitive.GTE => InstrCond.GEq
-      case _ => InstrCond.Eq
+      case _ => InstrCond.NZero // If it's not a comparison op, we just check if the result was not zero
     }
-    case _ => InstrCond.Eq
+    case _ => InstrCond.NZero // If it's not a operation, we just check if the value is zero
   }
 
   /**
@@ -228,15 +225,21 @@ object CompileX64 extends CompilePhase[ArchX64]("compileX64") {
         finJump = elseExec
           .map(_ => JMP(LabelRef.endIf(stmtID)).wrap)
           .getOrElse(ISeq.empty[ArchX64])
-        condC <- compileExpression(cond, ctx)
-        jtyp = conditionTypeForExpr(cond).negate
+        condC <- compileExpression(cond, ctx).map { instrs =>
+          if (instrs.instrs.lastOption.exists {
+            case _: SET => true // Remove set instruction from comparison commands so flag can be used directly
+            case _ => false
+          }) instrs.copy(instrs = instrs.instrs.dropRight(1)) else instrs
+        }
+        cmpR = if (!cond.isInstanceOf[Expression.Operation]) CMP(0.uconst, RAX).wrap else Instrs.empty // CMP with 0 if not an op
+        jtyp = conditionTypeForExpr(cond).negate // We jump to the end if the condition is false, so negate it
         jumpC = J(jtyp, target).wrap
         execC <- compileBlock(exec, ctx)
         elseC <- elseExec match {
           case Some(elseBody) => compileBlock(elseBody, ctx).map(_.label(Label.elseCase(stmtID)))
           case None => ISeq.empty[ArchX64].pure[IO]
         }
-        proc = (condC ++ jumpC ++ execC ++ finJump ++ elseC).labelEnd(Label.endIf(stmtID))
+        proc = (condC ++ cmpR ++ jumpC ++ execC ++ finJump ++ elseC).labelEnd(Label.endIf(stmtID))
       } yield (proc, ctx)
     case Statement.LocalLabel(name) => pure((ISeq.empty[ArchX64].label(Label.localMark(bid, name)), ctx))
     case Statement.Goto(label) => (JMP(LabelRef.localMark(bid, label)).wrap, ctx).pure[IO]

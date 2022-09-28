@@ -134,3 +134,15 @@ scala_binary(
     main_class = "dev.jtrim777.cmm.TestParser",
     deps = [":test-sources"]
 )
+
+scala_binary(
+    name = "test-validate",
+    main_class = "dev.jtrim777.cmm.TestValidate",
+    deps = [":test-sources"]
+)
+
+scala_binary(
+    name = "test-prepare",
+    main_class = "dev.jtrim777.cmm.TestPrepare",
+    deps = [":test-sources"]
+)

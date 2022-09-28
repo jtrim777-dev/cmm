@@ -87,7 +87,7 @@ class ParserImpl(val input: ParserInput) extends Parser {
   // TODO: Floating point support
 
   def Operator: Rule1[Primitive] = rule {
-    (capture(oneOrMore(anyOf("!%^&*+_/><~="))) ~ WSLOp ~> Primitive.parseOperator _) ~>
+    (capture(oneOrMore(anyOf("!%^&*+_/><~=-"))) ~ WSLOp ~> Primitive.parseOperator _) ~>
       {opt:Option[Primitive] => test(opt.isDefined).named("valid operator") ~ push(opt.get)}
   }
 

@@ -22,6 +22,11 @@ case class ISeq[Arch <: ISA](instrs: Seq[Instruction[Arch]], labels: Map[String,
   def labelEnd(key: String): ISeq[Arch] = this.copy(labels = labels.updated(key, instrs.length))
 
   private def labelsOffset(i: Int): Map[String, Int] = labels.map(t => (t._1, t._2 + i))
+
+  def contains(instr: Instruction[Arch]): Boolean = instrs.contains(instr)
+
+  def isEmpty: Boolean = instrs.isEmpty
+  def nonEmpty: Boolean = instrs.nonEmpty
 }
 
 object ISeq {
